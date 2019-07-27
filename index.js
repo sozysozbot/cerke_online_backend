@@ -12,27 +12,16 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: true
 });
-const showTimes = () => {
-    let result = '';
-    const times = process.env.TIMES || 5;
-    for (let i = 0; i < times; i++) {
-        result += i + ' ';
-    }
-    return result;
-};
 const app = express_1.default();
 app.use(function (req, res, next) {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
     next();
 });
-app
-    .use(express_1.default.static(path_1.default.join(__dirname, 'public')))
+app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
     .set('views', path_1.default.join(__dirname, 'views'))
     .set('view engine', 'ejs')
     .get('/', (req, res) => res.render('pages/index'))
-    .get('/cool', (req, res) => res.send(cool()))
-    .get('/times', (req, res) => res.send(showTimes()))
     .get('/db', async (req, res) => {
     try {
         const client = await pool.connect();
