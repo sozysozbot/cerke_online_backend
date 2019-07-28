@@ -46,14 +46,14 @@ app.use(express.static(path.join(__dirname, 'public')))
 
     if (message.type === 'InfAfterStep') { /* InfAfterStep */
       res.json({
+        legal: true,
         ciurl: [
           Math.random() < 0.5,
           Math.random() < 0.5,
           Math.random() < 0.5,
           Math.random() < 0.5,
           Math.random() < 0.5
-        ],
-        dat: [1, 2, 4]
+        ]
       });
     } else if (message.type === 'AfterHalfAcceptance') { /* AfterHalfAcceptance */
       res.json({
