@@ -13,6 +13,69 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: true
 });
+function isTypeObj(arg) {
+    return arg != null && 'string' === typeof arg.type;
+}
+function analyzeMessage(message) {
+    if (!isTypeObj(message)) {
+        return {
+            legal: false,
+            whyIllegal: "Invalid message: The message either does not have `.type` or its `.type` is not a string"
+        };
+    }
+    if (message.type === 'InfAfterStep') { /* InfAfterStep */
+        return {
+            legal: true,
+            ciurl: [
+                Math.random() < 0.5,
+                Math.random() < 0.5,
+                Math.random() < 0.5,
+                Math.random() < 0.5,
+                Math.random() < 0.5
+            ]
+        };
+    }
+    else if (message.type === 'AfterHalfAcceptance') { /* AfterHalfAcceptance */
+        return {
+            legal: true,
+            dat: Math.random() < 0.5 ? {
+                waterEntryHappened: true,
+                ciurl: [
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5
+                ]
+            } : {
+                waterEntryHappened: false
+            }
+        };
+    }
+    else if (message.type === 'NonTamMove' || message.type === 'TamMove') { /* NormalMove */
+        return {
+            legal: true,
+            dat: Math.random() < 0.5 ? {
+                waterEntryHappened: true,
+                ciurl: [
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5
+                ]
+            } : {
+                waterEntryHappened: false
+            }
+        };
+    }
+    else {
+        return {
+            legal: false,
+            whyIllegal: `Invalid message: The message has an unrecognised \`.type\`, which is \`${message.type}\`.`
+        };
+    }
+}
 const app = express_1.default();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -39,60 +102,18 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
     }
 })
     .post('/', (req, res) => {
+    console.log(req.body);
     let message = req.body.message;
-    if (!message) {
+    if (typeof message !== "object") {
+        console.log("message is primitive");
+        res.send('null');
+        return;
+    }
+    if (message == null) {
         console.log("no message");
         res.send('null');
+        return;
     }
-    if (message.type === 'InfAfterStep') { /* InfAfterStep */
-        res.json({
-            legal: true,
-            ciurl: [
-                Math.random() < 0.5,
-                Math.random() < 0.5,
-                Math.random() < 0.5,
-                Math.random() < 0.5,
-                Math.random() < 0.5
-            ]
-        });
-    }
-    else if (message.type === 'AfterHalfAcceptance') { /* AfterHalfAcceptance */
-        res.json({
-            legal: true,
-            dat: Math.random() < 0.5 ? {
-                waterEntryHappened: true,
-                ciurl: [
-                    Math.random() < 0.5,
-                    Math.random() < 0.5,
-                    Math.random() < 0.5,
-                    Math.random() < 0.5,
-                    Math.random() < 0.5
-                ]
-            } : {
-                waterEntryHappened: false
-            }
-        });
-    }
-    else if (message.type === 'NonTamMove' || message.type === 'TamMove') { /* NormalMove */
-        res.json({
-            legal: true,
-            dat: Math.random() < 0.5 ? {
-                waterEntryHappened: true,
-                ciurl: [
-                    Math.random() < 0.5,
-                    Math.random() < 0.5,
-                    Math.random() < 0.5,
-                    Math.random() < 0.5,
-                    Math.random() < 0.5
-                ]
-            } : {
-                waterEntryHappened: false
-            }
-        });
-    }
-    else {
-        res.send('{"ok":1}');
-    }
-    console.log(req.body);
+    res.json(analyzeMessage(message));
 })
     .listen(PORT, () => console.log(`Listening on ${PORT}`));
