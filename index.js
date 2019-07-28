@@ -7,12 +7,15 @@ const cool = require('cool-ascii-faces');
 const express_1 = __importDefault(require("express"));
 const path_1 = __importDefault(require("path"));
 const PORT = process.env.PORT || 23564;
+const bodyParser = require('body-parser');
 const { Pool } = require('pg');
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: true
 });
 const app = express_1.default();
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
 app.use(function (req, res, next) {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
@@ -36,6 +39,38 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
     }
 })
     .post('/', (req, res) => {
-    res.send('{"ok":1}');
+    let message = req.body.message;
+    if (!message) {
+        console.log("no message");
+        res.send('null');
+    }
+    if (message.type === 'InfAfterStep') { /* InfAfterStep */
+        res.json({
+            ciurl: [
+                Math.random() < 0.5,
+                Math.random() < 0.5,
+                Math.random() < 0.5,
+                Math.random() < 0.5,
+                Math.random() < 0.5
+            ],
+            dat: [1, 2, 4]
+        });
+    }
+    else if (message.type === 'AfterHalfAcceptance') { /* AfterHalfAcceptance */
+        res.json({
+            success: Math.random() < 0.5,
+            dat: [1, 2, 5]
+        });
+    }
+    else if (message.type === 'NonTamMove' || message.type === 'TamMove') { /* NormalMove */
+        res.json({
+            success: Math.random() < 0.5,
+            dat: [1, 2, 6]
+        });
+    }
+    else {
+        res.send('{"ok":1}');
+    }
+    console.log(req.body);
 })
     .listen(PORT, () => console.log(`Listening on ${PORT}`));
