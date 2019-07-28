@@ -61,7 +61,13 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
             legal: true,
             dat: Math.random() < 0.5 ? {
                 waterEntryHappened: true,
-                success: Math.random() < 0.5
+                ciurl: [
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5
+                ]
             } : {
                 waterEntryHappened: false
             }
@@ -69,8 +75,19 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
     }
     else if (message.type === 'NonTamMove' || message.type === 'TamMove') { /* NormalMove */
         res.json({
-            success: Math.random() < 0.5,
-            dat: [1, 2, 6]
+            legal: true,
+            dat: Math.random() < 0.5 ? {
+                waterEntryHappened: true,
+                ciurl: [
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5
+                ]
+            } : {
+                waterEntryHappened: false
+            }
         });
     }
     else {
