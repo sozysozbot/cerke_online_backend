@@ -1,0 +1,3 @@
+[submodule "cerke_online_api"]
+	path = cerke_online_api
+	url = https://github.com/sozysozbot/cerke_online_api.git
