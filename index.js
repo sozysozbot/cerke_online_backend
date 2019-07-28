@@ -58,8 +58,13 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
     }
     else if (message.type === 'AfterHalfAcceptance') { /* AfterHalfAcceptance */
         res.json({
-            success: Math.random() < 0.5,
-            dat: [1, 2, 5]
+            legal: true,
+            dat: Math.random() < 0.5 ? {
+                waterEntryHappened: true,
+                success: Math.random() < 0.5
+            } : {
+                waterEntryHappened: false
+            }
         });
     }
     else if (message.type === 'NonTamMove' || message.type === 'TamMove') { /* NormalMove */
