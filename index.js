@@ -13,19 +13,54 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: true
 });
+function isColor(arg) {
+    return arg === 0 || arg === 1;
+}
+function isProfession(arg) {
+    return arg === 0
+        || arg === 1
+        || arg === 2
+        || arg === 3
+        || arg === 4
+        || arg === 5
+        || arg === 6
+        || arg === 7
+        || arg === 8
+        || arg === 9;
+}
+function isAbsoluteRow(arg) {
+    return arg === 0
+        || arg === 1
+        || arg === 2
+        || arg === 3
+        || arg === 4
+        || arg === 5
+        || arg === 6
+        || arg === 7
+        || arg === 8;
+}
+function isAbsoluteColumn(arg) {
+    return arg === 0
+        || arg === 1
+        || arg === 2
+        || arg === 3
+        || arg === 4
+        || arg === 5
+        || arg === 6
+        || arg === 7
+        || arg === 8;
+}
+function isAbsoluteCoord(arg) {
+    return arg instanceof Array && arg.length === 2 && isAbsoluteRow(arg[0]) && isAbsoluteColumn(arg[1]);
+}
 function isTypeObj(arg) {
     return arg != null && 'string' === typeof arg.type;
 }
-function analyzeMessage(message) {
-    if (!isTypeObj(message)) {
-        return {
-            legal: false,
-            whyIllegal: "Invalid message: The message either does not have `.type` or its `.type` is not a string"
-        };
-    }
-    if (message.type === 'InfAfterStep') { /* InfAfterStep */
-        return {
-            legal: true,
+function analyzeAfterHalfAcceptance(msg) {
+    return {
+        legal: true,
+        dat: Math.random() < 0.5 ? {
+            waterEntryHappened: true,
             ciurl: [
                 Math.random() < 0.5,
                 Math.random() < 0.5,
@@ -33,24 +68,100 @@ function analyzeMessage(message) {
                 Math.random() < 0.5,
                 Math.random() < 0.5
             ]
+        } : {
+            waterEntryHappened: false
+        }
+    };
+}
+function analyzeInfAfterStep(msg) {
+    return {
+        legal: true,
+        ciurl: [
+            Math.random() < 0.5,
+            Math.random() < 0.5,
+            Math.random() < 0.5,
+            Math.random() < 0.5,
+            Math.random() < 0.5
+        ]
+    };
+}
+function analyzeMessage(message) {
+    if (!isTypeObj(message)) {
+        return {
+            legal: false,
+            whyIllegal: "Invalid message format: The message either does not have `.type` or its `.type` is not a string"
         };
     }
-    else if (message.type === 'AfterHalfAcceptance') { /* AfterHalfAcceptance */
-        return {
-            legal: true,
-            dat: Math.random() < 0.5 ? {
-                waterEntryHappened: true,
-                ciurl: [
-                    Math.random() < 0.5,
-                    Math.random() < 0.5,
-                    Math.random() < 0.5,
-                    Math.random() < 0.5,
-                    Math.random() < 0.5
-                ]
-            } : {
-                waterEntryHappened: false
-            }
+    if (message.type === 'InfAfterStep') { /* InfAfterStep */
+        const hasAdequateColor = function (arg) {
+            return arg != null && "color" in arg && isColor(arg.color);
         };
+        if (!hasAdequateColor(message)) {
+            return {
+                legal: false,
+                whyIllegal: "Invalid message format: The message has `InfAfterStep` as its `.type` but does not have a valid `.color`"
+            };
+        }
+        const hasAdequateProf = function (arg) {
+            return arg != null && "prof" in arg && isProfession(arg.prof);
+        };
+        if (!hasAdequateProf(message)) {
+            return {
+                legal: false,
+                whyIllegal: "Invalid message format: The message has `InfAfterStep` as its `.type` but does not have a valid `.prof`"
+            };
+        }
+        const hasAdequateSrc = function (arg) {
+            return arg != null && "src" in arg && isAbsoluteCoord(arg.src);
+        };
+        if (!hasAdequateSrc(message)) {
+            return {
+                legal: false,
+                whyIllegal: "Invalid message format: The message has `InfAfterStep` as its `.type` but does not have a valid `.src`"
+            };
+        }
+        const hasAdequateStep = function (arg) {
+            return arg != null && "step" in arg && isAbsoluteCoord(arg.step);
+        };
+        if (!hasAdequateStep(message)) {
+            return {
+                legal: false,
+                whyIllegal: "Invalid message format: The message has `InfAfterStep` as its `.type` but does not have a valid `.step`"
+            };
+        }
+        const hasAdequatePlannedDirection = function (arg) {
+            return arg != null && "plannedDirection" in arg && isAbsoluteCoord(arg.plannedDirection);
+        };
+        if (!hasAdequatePlannedDirection(message)) {
+            return {
+                legal: false,
+                whyIllegal: "Invalid message format: The message has `InfAfterStep` as its `.type` but does not have a valid `.step`"
+            };
+        }
+        return analyzeInfAfterStep({
+            type: 'InfAfterStep',
+            prof: message.prof,
+            color: message.color,
+            src: message.src,
+            step: message.step,
+            plannedDirection: message.plannedDirection
+        });
+    }
+    else if (message.type === 'AfterHalfAcceptance') { /* AfterHalfAcceptance */
+        const hasAdequateDest = function (arg) {
+            return arg != null && "dest" in arg && (arg.dest === null || isAbsoluteCoord(arg.dest));
+        };
+        if (!hasAdequateDest(message)) {
+            return {
+                legal: false,
+                whyIllegal: "Invalid message format: The message has `AfterHalfAcceptance` as its `.type` but does not have a valid `.dest`"
+            };
+        }
+        const msg = {
+            dest: message.dest,
+            type: 'AfterHalfAcceptance'
+        };
+        return analyzeAfterHalfAcceptance(msg);
     }
     else if (message.type === 'NonTamMove' || message.type === 'TamMove') { /* NormalMove */
         return {
@@ -72,7 +183,7 @@ function analyzeMessage(message) {
     else {
         return {
             legal: false,
-            whyIllegal: `Invalid message: The message has an unrecognised \`.type\`, which is \`${message.type}\`.`
+            whyIllegal: `Invalid message format: The message has an unrecognised \`.type\`, which is \`${message.type}\`.`
         };
     }
 }
