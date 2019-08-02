@@ -2,10 +2,81 @@
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
+    result["default"] = mod;
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const cool = require('cool-ascii-faces');
 const express_1 = __importDefault(require("express"));
 const path_1 = __importDefault(require("path"));
+const t = __importStar(require("io-ts"));
+const pipeable_1 = require("fp-ts/lib/pipeable");
+const Either_1 = require("fp-ts/lib/Either");
+const ColorVerifier = t.union([t.literal(0), t.literal(1)]);
+const ProfessionVerifier = t.union([
+    t.literal(0), t.literal(1), t.literal(2),
+    t.literal(3), t.literal(4), t.literal(5),
+    t.literal(6), t.literal(7), t.literal(8),
+    t.literal(9)
+]);
+const AbsoluteRowVerifier = t.union([
+    t.literal(0), t.literal(1), t.literal(2),
+    t.literal(3), t.literal(4), t.literal(5),
+    t.literal(6), t.literal(7), t.literal(8)
+]);
+const AbsoluteColumnVerifier = t.union([
+    t.literal(0), t.literal(1), t.literal(2),
+    t.literal(3), t.literal(4), t.literal(5),
+    t.literal(6), t.literal(7), t.literal(8)
+]);
+const AbsoluteCoordVerifier = t.tuple([AbsoluteRowVerifier, AbsoluteColumnVerifier]);
+const InfAfterStepVerifier = t.strict({
+    type: t.literal('InfAfterStep'),
+    color: ColorVerifier,
+    prof: ProfessionVerifier,
+    src: AbsoluteCoordVerifier,
+    step: AbsoluteCoordVerifier,
+    plannedDirection: AbsoluteCoordVerifier
+});
+const AfterHalfAcceptanceVerifier = t.strict({
+    type: t.literal('AfterHalfAcceptance'),
+    dest: t.union([AbsoluteCoordVerifier, t.null])
+});
+const NormalNonTamMoveVerifier = t.strict({
+    type: t.literal('NonTamMove'),
+    data: t.union([t.strict({
+            type: t.literal('FromHand'),
+            color: ColorVerifier,
+            prof: ProfessionVerifier,
+            dest: AbsoluteCoordVerifier
+        }), t.strict({
+            type: t.literal('SrcDst'),
+            src: AbsoluteCoordVerifier,
+            dest: AbsoluteCoordVerifier
+        }), t.strict({
+            type: t.literal('SrcStepDstFinite'),
+            src: AbsoluteCoordVerifier,
+            step: AbsoluteCoordVerifier,
+            dest: AbsoluteCoordVerifier
+        })])
+});
+const TamMoveVerifier = t.strict({
+    type: t.literal('TamMove'),
+    stepStyle: t.union([t.literal('NoStep'), t.literal('StepsDuringFormer'), t.literal('StepsDuringLatter')]),
+    src: AbsoluteCoordVerifier,
+    firstDest: AbsoluteCoordVerifier,
+    secondDest: AbsoluteCoordVerifier
+});
+const Verfier = t.union([
+    InfAfterStepVerifier,
+    AfterHalfAcceptanceVerifier,
+    NormalNonTamMoveVerifier,
+    TamMoveVerifier
+]);
 const PORT = process.env.PORT || 23564;
 const bodyParser = require('body-parser');
 const { Pool } = require('pg');
@@ -13,53 +84,32 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: true
 });
-function isColor(arg) {
-    return arg === 0 || arg === 1;
-}
-function isProfession(arg) {
-    return arg === 0
-        || arg === 1
-        || arg === 2
-        || arg === 3
-        || arg === 4
-        || arg === 5
-        || arg === 6
-        || arg === 7
-        || arg === 8
-        || arg === 9;
-}
-function isAbsoluteRow(arg) {
-    return arg === 0
-        || arg === 1
-        || arg === 2
-        || arg === 3
-        || arg === 4
-        || arg === 5
-        || arg === 6
-        || arg === 7
-        || arg === 8;
-}
-function isAbsoluteColumn(arg) {
-    return arg === 0
-        || arg === 1
-        || arg === 2
-        || arg === 3
-        || arg === 4
-        || arg === 5
-        || arg === 6
-        || arg === 7
-        || arg === 8;
-}
-function isAbsoluteCoord(arg) {
-    return arg instanceof Array && arg.length === 2 && isAbsoluteRow(arg[0]) && isAbsoluteColumn(arg[1]);
-}
-function isTypeObj(arg) {
-    return arg != null && 'string' === typeof arg.type;
+function isWater([row, col]) {
+    return (row === 4 && col === 2)
+        || (row === 4 && col === 3)
+        || (row === 4 && col === 4)
+        || (row === 4 && col === 5)
+        || (row === 4 && col === 6)
+        || (row === 2 && col === 4)
+        || (row === 3 && col === 4)
+        || (row === 5 && col === 4)
+        || (row === 6 && col === 4);
 }
 function analyzeAfterHalfAcceptance(msg) {
+    if (msg.dest == null) {
+        // hasn't actually moved, so the water entry cannot fail
+        return {
+            legal: true,
+            dat: {
+                waterEntryHappened: false
+            }
+        };
+    }
+    // FIXME: should not fail if Nuak1, Vessel, 船, felkana
+    // FIXME: should not fail if the starting point is also on water
     return {
         legal: true,
-        dat: Math.random() < 0.5 ? {
+        dat: isWater(msg.dest) ? {
             waterEntryHappened: true,
             ciurl: [
                 Math.random() < 0.5,
@@ -86,106 +136,68 @@ function analyzeInfAfterStep(msg) {
     };
 }
 function analyzeMessage(message) {
-    if (!isTypeObj(message)) {
-        return {
-            legal: false,
-            whyIllegal: "Invalid message format: The message either does not have `.type` or its `.type` is not a string"
-        };
-    }
-    if (message.type === 'InfAfterStep') { /* InfAfterStep */
-        const hasAdequateColor = function (arg) {
-            return arg != null && "color" in arg && isColor(arg.color);
-        };
-        if (!hasAdequateColor(message)) {
-            return {
-                legal: false,
-                whyIllegal: "Invalid message format: The message has `InfAfterStep` as its `.type` but does not have a valid `.color`"
-            };
+    const onLeft = (errors) => ({
+        legal: false,
+        whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
+    });
+    return pipeable_1.pipe(Verfier.decode(message), Either_1.fold(onLeft, function (msg) {
+        if (msg.type === 'InfAfterStep') { /* InfAfterStep */
+            return analyzeInfAfterStep(msg);
         }
-        const hasAdequateProf = function (arg) {
-            return arg != null && "prof" in arg && isProfession(arg.prof);
-        };
-        if (!hasAdequateProf(message)) {
-            return {
-                legal: false,
-                whyIllegal: "Invalid message format: The message has `InfAfterStep` as its `.type` but does not have a valid `.prof`"
-            };
+        else if (msg.type === 'AfterHalfAcceptance') {
+            return analyzeAfterHalfAcceptance(msg);
         }
-        const hasAdequateSrc = function (arg) {
-            return arg != null && "src" in arg && isAbsoluteCoord(arg.src);
-        };
-        if (!hasAdequateSrc(message)) {
-            return {
-                legal: false,
-                whyIllegal: "Invalid message format: The message has `InfAfterStep` as its `.type` but does not have a valid `.src`"
-            };
-        }
-        const hasAdequateStep = function (arg) {
-            return arg != null && "step" in arg && isAbsoluteCoord(arg.step);
-        };
-        if (!hasAdequateStep(message)) {
-            return {
-                legal: false,
-                whyIllegal: "Invalid message format: The message has `InfAfterStep` as its `.type` but does not have a valid `.step`"
-            };
-        }
-        const hasAdequatePlannedDirection = function (arg) {
-            return arg != null && "plannedDirection" in arg && isAbsoluteCoord(arg.plannedDirection);
-        };
-        if (!hasAdequatePlannedDirection(message)) {
-            return {
-                legal: false,
-                whyIllegal: "Invalid message format: The message has `InfAfterStep` as its `.type` but does not have a valid `.step`"
-            };
-        }
-        return analyzeInfAfterStep({
-            type: 'InfAfterStep',
-            prof: message.prof,
-            color: message.color,
-            src: message.src,
-            step: message.step,
-            plannedDirection: message.plannedDirection
-        });
-    }
-    else if (message.type === 'AfterHalfAcceptance') { /* AfterHalfAcceptance */
-        const hasAdequateDest = function (arg) {
-            return arg != null && "dest" in arg && (arg.dest === null || isAbsoluteCoord(arg.dest));
-        };
-        if (!hasAdequateDest(message)) {
-            return {
-                legal: false,
-                whyIllegal: "Invalid message format: The message has `AfterHalfAcceptance` as its `.type` but does not have a valid `.dest`"
-            };
-        }
-        const msg = {
-            dest: message.dest,
-            type: 'AfterHalfAcceptance'
-        };
-        return analyzeAfterHalfAcceptance(msg);
-    }
-    else if (message.type === 'NonTamMove' || message.type === 'TamMove') { /* NormalMove */
-        return {
-            legal: true,
-            dat: Math.random() < 0.5 ? {
-                waterEntryHappened: true,
-                ciurl: [
-                    Math.random() < 0.5,
-                    Math.random() < 0.5,
-                    Math.random() < 0.5,
-                    Math.random() < 0.5,
-                    Math.random() < 0.5
-                ]
-            } : {
-                waterEntryHappened: false
+        else if (msg.type === 'NonTamMove') {
+            if (msg.data.type === 'FromHand') {
+                // never fails
+                return {
+                    legal: true,
+                    dat: {
+                        waterEntryHappened: false
+                    }
+                };
             }
-        };
-    }
-    else {
-        return {
-            legal: false,
-            whyIllegal: `Invalid message format: The message has an unrecognised \`.type\`, which is \`${message.type}\`.`
-        };
-    }
+            if (isWater(msg.data.src)) {
+                // never fails
+                return {
+                    legal: true,
+                    dat: {
+                        waterEntryHappened: false
+                    }
+                };
+            }
+            // FIXME: should not fail if Nuak1, Vessel, 船, felkana
+            // FIXME: should not fail if the starting point is also on water
+            return {
+                legal: true,
+                dat: isWater(msg.data.dest) ? {
+                    waterEntryHappened: true,
+                    ciurl: [
+                        Math.random() < 0.5,
+                        Math.random() < 0.5,
+                        Math.random() < 0.5,
+                        Math.random() < 0.5,
+                        Math.random() < 0.5
+                    ]
+                } : {
+                    waterEntryHappened: false
+                }
+            };
+        }
+        else if (msg.type === 'TamMove') {
+            // Tam2 never fails water entry
+            return {
+                legal: true,
+                dat: {
+                    waterEntryHappened: false
+                }
+            };
+        }
+        else {
+            let _should_not_reach_here = msg;
+            throw new Error("should not reach here");
+        }
+    }));
 }
 const app = express_1.default();
 app.use(bodyParser.urlencoded({ extended: true }));

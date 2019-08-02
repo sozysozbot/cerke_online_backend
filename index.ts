@@ -95,10 +95,36 @@ const pool = new Pool({
   ssl: true
 });
 
+function isWater([row, col]: AbsoluteCoord): boolean {
+  return (row === 4 && col === 2)
+    || (row === 4 && col === 3)
+    || (row === 4 && col === 4)
+    || (row === 4 && col === 5)
+    || (row === 4 && col === 6)
+    || (row === 2 && col === 4)
+    || (row === 3 && col === 4)
+    || (row === 5 && col === 4)
+    || (row === 6 && col === 4)
+    ;
+}
+
 function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance): Ret_AfterHalfAcceptance {
+  if (msg.dest == null) {
+    // hasn't actually moved, so the water entry cannot fail
+    return {
+      legal: true,
+      dat: {
+        waterEntryHappened: false
+      }
+    };
+  }
+
+  // FIXME: should not fail if Nuak1, Vessel, 船, felkana
+  // FIXME: should not fail if the starting point is also on water
+
   return ({
     legal: true,
-    dat: Math.random() < 0.5 ? {
+    dat: isWater(msg.dest) ? {
       waterEntryHappened: true,
       ciurl: [
         Math.random() < 0.5,
@@ -139,10 +165,32 @@ function analyzeMessage(message: object): Ret_InfAfterStep | Ret_AfterHalfAccept
         return analyzeInfAfterStep(msg);
       } else if (msg.type === 'AfterHalfAcceptance') {
         return analyzeAfterHalfAcceptance(msg);
-      } else if (msg.type === 'NonTamMove' || msg.type === 'TamMove') {
+      } else if (msg.type === 'NonTamMove') {
+        if (msg.data.type === 'FromHand') {
+          // never fails
+          return {
+            legal: true,
+            dat: {
+              waterEntryHappened: false
+            }
+          };
+        }
+
+        if (isWater(msg.data.src)) {
+          // never fails
+          return {
+            legal: true,
+            dat: {
+              waterEntryHappened: false
+            }
+          };
+        }
+
+        // FIXME: should not fail if Nuak1, Vessel, 船, felkana
+        // FIXME: should not fail if the starting point is also on water
         return ({
           legal: true,
-          dat: Math.random() < 0.5 ? {
+          dat: isWater(msg.data.dest) ? {
             waterEntryHappened: true,
             ciurl: [
               Math.random() < 0.5,
@@ -154,6 +202,15 @@ function analyzeMessage(message: object): Ret_InfAfterStep | Ret_AfterHalfAccept
           } : {
               waterEntryHappened: false
             }
+        } as Ret_NormalMove);
+      } else if (msg.type === 'TamMove') {
+
+        // Tam2 never fails water entry
+        return ({
+          legal: true,
+          dat: {
+            waterEntryHappened: false
+          }
         } as Ret_NormalMove);
       } else {
         let _should_not_reach_here: never = msg;
