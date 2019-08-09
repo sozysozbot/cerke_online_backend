@@ -247,23 +247,34 @@ app.use(express.static(path.join(__dirname, 'public')))
       res.send("Error " + err);
     }
   })
-  .post('/', (req, res) => {
-    console.log(req.body);
-    let message: unknown = req.body.message;
+  .post('/', main)
+  .post('/slow', (req, res) => {
+    (async () => {
+      let time = Math.random() * 1000 | 0;
+      console.log(`start waiting for ${time}ms`);
+      await new Promise(r => setTimeout(r, time));
 
-    if (typeof message !== "object") {
-      console.log("message is primitive");
-      res.send('null');
-      return;
-    }
-
-    if (message == null) {
-      console.log("no message");
-      res.send('null');
-      return;
-    }
-
-    res.json(analyzeMessage(message));
-
+      console.log("finish waiting");
+      main(req, res);
+    })();
   })
   .listen(PORT, () => console.log(`Listening on ${PORT}`))
+
+function main(req: Request, res: Response) {
+  console.log(req.body);
+  let message: unknown = req.body.message;
+
+  if (typeof message !== "object") {
+    console.log("message is primitive");
+    res.send('null');
+    return;
+  }
+
+  if (message == null) {
+    console.log("no message");
+    res.send('null');
+    return;
+  }
+
+  res.json(analyzeMessage(message));
+}
