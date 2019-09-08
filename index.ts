@@ -1,4 +1,5 @@
 const cool = require('cool-ascii-faces')
+const uuidv4 = require('uuid/v4');
 import express from 'express';
 import { Request, Response } from 'express';
 import path from 'path';
@@ -15,6 +16,7 @@ import Ciurl = type__message.Ciurl;
 import Ret_InfAfterStep = type__message.Ret_InfAfterStep;
 import Ret_NormalMove = type__message.Ret_NormalMove;
 import Ret_AfterHalfAcceptance = type__message.Ret_AfterHalfAcceptance;
+import RandomEntry = type__message.RandomEntry;
 import * as t from "io-ts";
 import { pipe } from 'fp-ts/lib/pipeable'
 import { fold } from 'fp-ts/lib/Either'
@@ -258,6 +260,7 @@ app.use(express.static(path.join(__dirname, 'public')))
       main(req, res);
     })();
   })
+  .post('/random/entry', random_entrance)
   .listen(PORT, () => console.log(`Listening on ${PORT}`))
 
 function main(req: Request, res: Response) {
@@ -277,4 +280,41 @@ function main(req: Request, res: Response) {
   }
 
   res.json(analyzeMessage(message));
+}
+
+type RoomId = string & { __RoomIdBrand: never };
+type AccessToken = string & { __AccessTokenBrand: never };
+
+var waiting_list = new Set<AccessToken>();
+
+function open_a_room(token1: AccessToken, token2: AccessToken) {
+  console.log("A match between", token1, "and", token2, "will begin.");
+
+  // FIXME
+}
+
+function randomEntry(): RandomEntry {
+  const newToken: AccessToken = uuidv4() as AccessToken;
+  for (let token of waiting_list) {
+    waiting_list.delete(token);
+    open_a_room(token, newToken);
+
+    // exit after finding the first person
+    return {
+      "state": "let_the_game_begin",
+      "access_token": newToken
+    };
+  }
+
+  // If you are still here, that means no one is found
+  waiting_list.add(newToken);
+  return {
+    "state": "in_waiting_list",
+    "access_token": newToken
+  };
+
+}
+
+function random_entrance(_req: Request, res: Response) {
+  res.json(randomEntry());
 }

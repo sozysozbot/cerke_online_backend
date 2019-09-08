@@ -11,6 +11,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const cool = require('cool-ascii-faces');
+const uuidv4 = require('uuid/v4');
 const express_1 = __importDefault(require("express"));
 const path_1 = __importDefault(require("path"));
 const t = __importStar(require("io-ts"));
@@ -234,6 +235,7 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
         main(req, res);
     })();
 })
+    .post('/random/entry', random_entrance)
     .listen(PORT, () => console.log(`Listening on ${PORT}`));
 function main(req, res) {
     console.log(req.body);
@@ -249,4 +251,30 @@ function main(req, res) {
         return;
     }
     res.json(analyzeMessage(message));
+}
+var waiting_list = new Set();
+function open_a_room(token1, token2) {
+    console.log("A match between", token1, "and", token2, "will begin.");
+    // FIXME
+}
+function randomEntry() {
+    const newToken = uuidv4();
+    for (let token of waiting_list) {
+        waiting_list.delete(token);
+        open_a_room(token, newToken);
+        // exit after finding the first person
+        return {
+            "state": "let_the_game_begin",
+            "access_token": newToken
+        };
+    }
+    // If you are still here, that means no one is found
+    waiting_list.add(newToken);
+    return {
+        "state": "in_waiting_list",
+        "access_token": newToken
+    };
+}
+function random_entrance(_req, res) {
+    res.json(randomEntry());
 }
