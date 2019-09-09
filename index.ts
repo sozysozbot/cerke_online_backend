@@ -16,7 +16,8 @@ import Ciurl = type__message.Ciurl;
 import Ret_InfAfterStep = type__message.Ret_InfAfterStep;
 import Ret_NormalMove = type__message.Ret_NormalMove;
 import Ret_AfterHalfAcceptance = type__message.Ret_AfterHalfAcceptance;
-import RandomEntry = type__message.RandomEntry;
+import RandomEntry = type__message.Ret_RandomEntry;
+import Ret_RandomPoll = type__message.Ret_RandomPoll;
 import * as t from "io-ts";
 import { pipe } from 'fp-ts/lib/pipeable'
 import { fold } from 'fp-ts/lib/Either'
@@ -325,15 +326,14 @@ function randomEntry(): RandomEntry {
 }
 
 function random_poll(req: Request, res: Response) {
-  type Ret = { legal: false, whyIllegal: string } | RandomEntry
-  const onLeft = (errors: t.Errors): Ret => ({
+  const onLeft = (errors: t.Errors): Ret_RandomPoll => ({
     legal: false,
     whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
   })
 
   return res.json(pipe(
     PollVerifier.decode(req.body),
-    fold(onLeft, function (msg: { "access_token": string }): Ret {
+    fold(onLeft, function (msg: { "access_token": string }): Ret_RandomPoll {
       const access_token = msg.access_token as AccessToken
       const maybe_room_id: RoomId | undefined = person_to_room.get(access_token)
       if (typeof maybe_room_id !== "undefined") {

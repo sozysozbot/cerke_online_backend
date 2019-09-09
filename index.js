@@ -260,6 +260,7 @@ var waiting_list = new Set();
 var person_to_room = new Map();
 function open_a_room(token1, token2) {
     console.log("A match between", token1, "and", token2, "will begin.");
+    // FIXME
     return uuidv4();
 }
 function randomEntry() {
