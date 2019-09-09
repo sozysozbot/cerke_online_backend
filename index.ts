@@ -82,12 +82,16 @@ const TamMoveVerifier = t.strict({
 });
 
 
-const Verfier = t.union([
+const Verifier = t.union([
   InfAfterStepVerifier,
   AfterHalfAcceptanceVerifier,
   NormalNonTamMoveVerifier,
   TamMoveVerifier
 ]);
+
+const PollVerifier = t.strict({
+  access_token: t.string
+})
 
 const PORT = process.env.PORT || 23564;
 const bodyParser = require('body-parser');
@@ -161,7 +165,7 @@ function analyzeMessage(message: object): Ret_InfAfterStep | Ret_AfterHalfAccept
   })
 
   return pipe(
-    Verfier.decode(message),
+    Verifier.decode(message),
     fold(onLeft, function (msg: InfAfterStep | AfterHalfAcceptance | NormalMove) {
       if (msg.type === 'InfAfterStep') { /* InfAfterStep */
         return analyzeInfAfterStep(msg);
@@ -261,6 +265,7 @@ app.use(express.static(path.join(__dirname, 'public')))
     })();
   })
   .post('/random/entry', random_entrance)
+  .post('/random/poll', random_poll)
   .listen(PORT, () => console.log(`Listening on ${PORT}`))
 
 function main(req: Request, res: Response) {
@@ -286,18 +291,22 @@ type RoomId = string & { __RoomIdBrand: never };
 type AccessToken = string & { __AccessTokenBrand: never };
 
 var waiting_list = new Set<AccessToken>();
+var person_to_room = new Map<AccessToken, RoomId>();
 
-function open_a_room(token1: AccessToken, token2: AccessToken) {
+function open_a_room(token1: AccessToken, token2: AccessToken): RoomId {
   console.log("A match between", token1, "and", token2, "will begin.");
 
   // FIXME
+  return uuidv4() as RoomId;
 }
 
 function randomEntry(): RandomEntry {
   const newToken: AccessToken = uuidv4() as AccessToken;
   for (let token of waiting_list) {
     waiting_list.delete(token);
-    open_a_room(token, newToken);
+    const room_id = open_a_room(token, newToken);
+    person_to_room.set(newToken, room_id);
+    person_to_room.set(token, room_id);
 
     // exit after finding the first person
     return {
@@ -313,6 +322,41 @@ function randomEntry(): RandomEntry {
     "access_token": newToken
   };
 
+}
+
+function random_poll(req: Request, res: Response) {
+  type Ret = { legal: false, whyIllegal: string } | RandomEntry
+  const onLeft = (errors: t.Errors): Ret => ({
+    legal: false,
+    whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
+  })
+
+  return res.json(pipe(
+    PollVerifier.decode(req.body),
+    fold(onLeft, function (msg: { "access_token": string }): Ret {
+      const access_token = msg.access_token as AccessToken
+      const maybe_room_id: RoomId | undefined = person_to_room.get(access_token)
+      if (typeof maybe_room_id !== "undefined") {
+        return {
+          "state": "let_the_game_begin",
+          "access_token": msg.access_token
+        }
+      } else if (waiting_list.has(access_token)) { // not yet assigned a room, but is in the waiting list
+        return {
+          "state": "in_waiting_list",
+          "access_token": msg.access_token
+        }
+      } else { // You sent me a poll, but  I don't know you. Hmm...
+        return {
+          legal: false,
+          whyIllegal: `Invalid access token: 
+          I don't know your access token, which is ${access_token}.
+          Please reapply by sending an empty object to random/entry .`
+        }
+
+        // FIXME: in the future, I might let you reapply. This will of course change your UUID.
+      }
+    })));
 }
 
 function random_entrance(_req: Request, res: Response) {
