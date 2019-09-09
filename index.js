@@ -293,14 +293,20 @@ function random_poll(req, res) {
         const maybe_room_id = person_to_room.get(access_token);
         if (typeof maybe_room_id !== "undefined") {
             return {
-                "state": "let_the_game_begin",
-                "access_token": msg.access_token
+                legal: true,
+                ret: {
+                    "state": "let_the_game_begin",
+                    "access_token": msg.access_token
+                }
             };
         }
         else if (waiting_list.has(access_token)) { // not yet assigned a room, but is in the waiting list
             return {
-                "state": "in_waiting_list",
-                "access_token": msg.access_token
+                legal: true,
+                ret: {
+                    "state": "in_waiting_list",
+                    "access_token": msg.access_token
+                }
             };
         }
         else { // You sent me a poll, but  I don't know you. Hmm...
