@@ -240,6 +240,7 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
 })
     .post('/random/entry', random_entrance)
     .post('/random/poll', random_poll)
+    .post('/random/cancel', random_cancel)
     .listen(PORT, () => console.log(`Listening on ${PORT}`));
 function main(req, res) {
     console.log(req.body);
@@ -270,6 +271,7 @@ function randomEntry() {
         const room_id = open_a_room(token, newToken);
         person_to_room.set(newToken, room_id);
         person_to_room.set(token, room_id);
+        console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`);
         // exit after finding the first person
         return {
             "state": "let_the_game_begin",
@@ -278,6 +280,7 @@ function randomEntry() {
     }
     // If you are still here, that means no one is found
     waiting_list.add(newToken);
+    console.log(`Cannot find a partner for ${newToken}, who will thus be put in the waiting list.`);
     return {
         "state": "in_waiting_list",
         "access_token": newToken
@@ -317,6 +320,38 @@ function random_poll(req, res) {
           Please reapply by sending an empty object to random/entry .`
             };
             // FIXME: in the future, I might let you reapply. This will of course change your UUID.
+        }
+    })));
+}
+function random_cancel(req, res) {
+    const onLeft = (errors) => ({
+        legal: false,
+        whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
+    });
+    return res.json(pipeable_1.pipe(PollVerifier.decode(req.body), Either_1.fold(onLeft, function (msg) {
+        const access_token = msg.access_token;
+        const maybe_room_id = person_to_room.get(access_token);
+        // you already have a room. you cannot cancel
+        if (typeof maybe_room_id !== "undefined") {
+            return {
+                legal: true,
+                cancellable: false
+            };
+        }
+        else if (waiting_list.has(access_token)) { // not yet assigned a room, but is in the waiting list
+            waiting_list.delete(access_token);
+            console.log(`Canceled ${access_token}.`);
+            return {
+                legal: true,
+                cancellable: true
+            };
+        }
+        else { // You told me to cancel, but I don't know you. Hmm...
+            // well, at least you can cancel
+            return {
+                legal: true,
+                cancellable: true
+            };
         }
     })));
 }

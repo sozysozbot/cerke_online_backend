@@ -18,6 +18,7 @@ import Ret_NormalMove = type__message.Ret_NormalMove;
 import Ret_AfterHalfAcceptance = type__message.Ret_AfterHalfAcceptance;
 import RandomEntry = type__message.Ret_RandomEntry;
 import Ret_RandomPoll = type__message.Ret_RandomPoll;
+import Ret_RandomCancel = type__message.Ret_RandomCancel;
 import * as t from "io-ts";
 import { pipe } from 'fp-ts/lib/pipeable'
 import { fold } from 'fp-ts/lib/Either'
@@ -267,6 +268,7 @@ app.use(express.static(path.join(__dirname, 'public')))
   })
   .post('/random/entry', random_entrance)
   .post('/random/poll', random_poll)
+  .post('/random/cancel', random_cancel)
   .listen(PORT, () => console.log(`Listening on ${PORT}`))
 
 function main(req: Request, res: Response) {
@@ -308,6 +310,7 @@ function randomEntry(): RandomEntry {
     const room_id = open_a_room(token, newToken);
     person_to_room.set(newToken, room_id);
     person_to_room.set(token, room_id);
+    console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`)
 
     // exit after finding the first person
     return {
@@ -318,6 +321,7 @@ function randomEntry(): RandomEntry {
 
   // If you are still here, that means no one is found
   waiting_list.add(newToken);
+  console.log(`Cannot find a partner for ${newToken}, who will thus be put in the waiting list.`);
   return {
     "state": "in_waiting_list",
     "access_token": newToken
@@ -361,6 +365,41 @@ function random_poll(req: Request, res: Response) {
         }
 
         // FIXME: in the future, I might let you reapply. This will of course change your UUID.
+      }
+    })));
+}
+
+function random_cancel(req: Request, res: Response) {
+  const onLeft = (errors: t.Errors): Ret_RandomCancel => ({
+    legal: false,
+    whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
+  })
+
+  return res.json(pipe(
+    PollVerifier.decode(req.body),
+    fold(onLeft, function (msg: { "access_token": string }): Ret_RandomCancel {
+      const access_token = msg.access_token as AccessToken
+      const maybe_room_id: RoomId | undefined = person_to_room.get(access_token)
+
+      // you already have a room. you cannot cancel
+      if (typeof maybe_room_id !== "undefined") {
+        return {
+          legal: true,
+          cancellable: false
+        }
+      } else if (waiting_list.has(access_token)) { // not yet assigned a room, but is in the waiting list
+        waiting_list.delete(access_token);
+        console.log(`Canceled ${access_token}.`);
+        return {
+          legal: true,
+          cancellable: true
+        }
+      } else { // You told me to cancel, but I don't know you. Hmm...
+        // well, at least you can cancel
+        return {
+          legal: true,
+          cancellable: true
+        }
       }
     })));
 }
