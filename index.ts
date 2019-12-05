@@ -75,13 +75,21 @@ const NormalNonTamMoveVerifier = t.strict({
   })])
 });
 
-const TamMoveVerifier = t.strict({
+const TamMoveVerifier = t.union([ t.strict({
   type: t.literal('TamMove'),
-  stepStyle: t.union([t.literal('NoStep'), t.literal('StepsDuringFormer'), t.literal('StepsDuringLatter')]),
+  stepStyle: t.literal('NoStep'),
   src: AbsoluteCoordVerifier,
   firstDest: AbsoluteCoordVerifier,
   secondDest: AbsoluteCoordVerifier
-});
+}), t.strict({
+  type: t.literal('TamMove'),
+  stepStyle: t.union([t.literal('StepsDuringFormer'), t.literal('StepsDuringLatter')]),
+  src: AbsoluteCoordVerifier,
+  step: AbsoluteCoordVerifier,
+  firstDest: AbsoluteCoordVerifier,
+  secondDest: AbsoluteCoordVerifier
+})
+]);
 
 
 const Verifier = t.union([
