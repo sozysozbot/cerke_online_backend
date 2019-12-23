@@ -25,14 +25,14 @@ const ProfessionVerifier = t.union([
     t.literal(9)
 ]);
 const AbsoluteRowVerifier = t.union([
-    t.literal(0), t.literal(1), t.literal(2),
-    t.literal(3), t.literal(4), t.literal(5),
-    t.literal(6), t.literal(7), t.literal(8)
+    t.literal("A"), t.literal("E"), t.literal("I"),
+    t.literal("U"), t.literal("O"), t.literal("Y"),
+    t.literal("AI"), t.literal("AU"), t.literal("IA")
 ]);
 const AbsoluteColumnVerifier = t.union([
-    t.literal(0), t.literal(1), t.literal(2),
-    t.literal(3), t.literal(4), t.literal(5),
-    t.literal(6), t.literal(7), t.literal(8)
+    t.literal("K"), t.literal("L"), t.literal("N"),
+    t.literal("T"), t.literal("Z"), t.literal("X"),
+    t.literal("C"), t.literal("M"), t.literal("P")
 ]);
 const AbsoluteCoordVerifier = t.tuple([AbsoluteRowVerifier, AbsoluteColumnVerifier]);
 const InfAfterStepVerifier = t.strict({
@@ -97,15 +97,15 @@ const pool = new Pool({
     ssl: true
 });
 function isWater([row, col]) {
-    return (row === 4 && col === 2)
-        || (row === 4 && col === 3)
-        || (row === 4 && col === 4)
-        || (row === 4 && col === 5)
-        || (row === 4 && col === 6)
-        || (row === 2 && col === 4)
-        || (row === 3 && col === 4)
-        || (row === 5 && col === 4)
-        || (row === 6 && col === 4);
+    return (row === "O" && col === "N")
+        || (row === "O" && col === "T")
+        || (row === "O" && col === "Z")
+        || (row === "O" && col === "X")
+        || (row === "O" && col === "C")
+        || (row === "I" && col === "Z")
+        || (row === "U" && col === "Z")
+        || (row === "Y" && col === "Z")
+        || (row === "AI" && col === "Z");
 }
 function analyzeAfterHalfAcceptance(msg) {
     if (msg.dest == null) {
