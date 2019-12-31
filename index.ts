@@ -16,6 +16,9 @@ import Ret_AfterHalfAcceptance = type__message.Ret_AfterHalfAcceptance;
 import RandomEntry = type__message.Ret_RandomEntry;
 import Ret_RandomPoll = type__message.Ret_RandomPoll;
 import Ret_RandomCancel = type__message.Ret_RandomCancel;
+import SrcDst = type__message.SrcDst;
+import SrcStepDstFinite = type__message.SrcStepDstFinite;
+import MoveToBePolled = type__message.MoveToBePolled;
 import * as t from "io-ts";
 import { pipe } from 'fp-ts/lib/pipeable'
 import { fold } from 'fp-ts/lib/Either'
@@ -677,59 +680,6 @@ export type Tuple9<T> = [T, T, T, T, T, T, T, T, T];
 
 export type Board = Tuple9<Row>;
 export type Row = Tuple9<Piece | null>;
-
-interface SrcDst {
-  type: "SrcDst";
-  src: AbsoluteCoord;
-  dest: AbsoluteCoord;
-  water_entry_ciurl?: Ciurl;
-}
-
-interface SrcStepDstFinite {
-  type: "SrcStepDstFinite";
-  src: AbsoluteCoord;
-  step: AbsoluteCoord;
-  dest: AbsoluteCoord;
-  water_entry_ciurl?: Ciurl;
-}
-
-interface MoveToBePolledWithPotentialWaterEntry {
-  type: "NonTamMove";
-  data: SrcDst | SrcStepDstFinite;
-}
-
-type MoveToBePolled = MoveToBePolledWithPotentialWaterEntry | {
-  type: "NonTamMove",
-  data: {
-      type: "FromHand";
-      color: Color;
-      prof: Profession;
-      dest: AbsoluteCoord;
-  },
-} | {
-  type: "TamMove"
-  stepStyle: "NoStep";
-  src: AbsoluteCoord;
-  firstDest: AbsoluteCoord;
-  secondDest: AbsoluteCoord;
-} | {
-  type: "TamMove"
-  stepStyle: "StepsDuringFormer" | "StepsDuringLatter";
-  src: AbsoluteCoord;
-  step: AbsoluteCoord;
-  firstDest: AbsoluteCoord;
-  secondDest: AbsoluteCoord;
-} | {
-  type: "InfAfterStep";
-  src: AbsoluteCoord;
-  step: AbsoluteCoord;
-  plannedDirection: AbsoluteCoord;
-  stepping_ciurl: Ciurl;
-  finalResult: null /* not yet known */| {
-      dest: AbsoluteCoord;
-      water_entry_ciurl?: Ciurl;
-  };
-};
 
 interface GameState {
   f: Field;
