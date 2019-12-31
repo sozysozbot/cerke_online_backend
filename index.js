@@ -257,7 +257,12 @@ function isWater([row, col]) {
         || (row === "AI" && col === "Z");
 }
 function analyzeAfterHalfAcceptance(msg, room_info) {
+    const game_state = room_to_gamestate.get(room_info.room_id);
+    const { src, step } = game_state.waiting_for_after_half_acceptance;
     if (msg.dest == null) {
+        game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1].move.finalResult = {
+            dest: src
+        };
         // hasn't actually moved, so the water entry cannot fail
         return {
             legal: true,
@@ -266,12 +271,13 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
             }
         };
     }
-    const game_state = room_to_gamestate.get(room_info.room_id);
-    const { src, step } = game_state.waiting_for_after_half_acceptance;
     const piece = getPiece(game_state, src);
     game_state.waiting_for_after_half_acceptance = null;
     if (isWater(src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
         movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
+        game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1].move.finalResult = {
+            dest: src
+        };
         return {
             legal: true,
             dat: {
@@ -290,6 +296,10 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
         if (water_entry_ciurl.filter((a) => a).length >= 3) {
             movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
         }
+        game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1].move.finalResult = {
+            dest: src,
+            water_entry_ciurl
+        };
         return {
             legal: true,
             dat: {
@@ -300,6 +310,9 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
     }
     else {
         movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
+        game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1].move.finalResult = {
+            dest: src
+        };
         return {
             legal: true,
             dat: {
@@ -311,15 +324,27 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
 function analyzeInfAfterStep(msg, room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
     game_state.waiting_for_after_half_acceptance = { src: msg.src, step: msg.step };
+    const stepping_ciurl = [
+        Math.random() < 0.5,
+        Math.random() < 0.5,
+        Math.random() < 0.5,
+        Math.random() < 0.5,
+        Math.random() < 0.5
+    ];
+    game_state.moves_to_be_polled.push({
+        byIAOwner: room_info.is_IA_down_for_me,
+        move: {
+            type: msg.type,
+            src: msg.src,
+            step: msg.step,
+            plannedDirection: msg.plannedDirection,
+            stepping_ciurl,
+            finalResult: null
+        }
+    });
     return {
         legal: true,
-        ciurl: [
-            Math.random() < 0.5,
-            Math.random() < 0.5,
-            Math.random() < 0.5,
-            Math.random() < 0.5,
-            Math.random() < 0.5
-        ]
+        ciurl: stepping_ciurl
     };
 }
 function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, dest, is_IA_down_for_me) {
@@ -369,6 +394,13 @@ function analyzeMessage(message, room_info) {
                         throw new Error("should not happen: already occupied and cannot be placed from hop1 zuo1");
                     }
                 }
+                game_state.moves_to_be_polled.push({
+                    byIAOwner: room_info.is_IA_down_for_me,
+                    move: {
+                        type: "NonTamMove",
+                        data: msg.data
+                    }
+                });
                 // never fails
                 return {
                     legal: true,
@@ -380,6 +412,13 @@ function analyzeMessage(message, room_info) {
             const piece = getPiece(game_state, msg.data.src);
             if (isWater(msg.data.src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
                 movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+                game_state.moves_to_be_polled.push({
+                    byIAOwner: room_info.is_IA_down_for_me,
+                    move: {
+                        type: "NonTamMove",
+                        data: msg.data
+                    }
+                });
                 // never fails
                 return {
                     legal: true,
@@ -399,6 +438,35 @@ function analyzeMessage(message, room_info) {
                 if (ciurl.filter((a) => a).length >= 3) {
                     movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
                 }
+                const data = (() => {
+                    if (msg.data.type === "SrcDst") {
+                        const ans = {
+                            type: msg.data.type,
+                            src: msg.data.src,
+                            dest: msg.data.dest,
+                            water_entry_ciurl: ciurl
+                        };
+                        return ans;
+                    }
+                    else if (msg.data.type === "SrcStepDstFinite") {
+                        const ans = {
+                            type: msg.data.type,
+                            src: msg.data.src,
+                            step: msg.data.step,
+                            dest: msg.data.dest,
+                            water_entry_ciurl: ciurl
+                        };
+                        return ans;
+                    }
+                    else {
+                        const _should_not_reach_here = msg.data;
+                        throw new Error("should not happen");
+                    }
+                })();
+                game_state.moves_to_be_polled.push({
+                    byIAOwner: room_info.is_IA_down_for_me,
+                    move: { type: "NonTamMove", data }
+                });
                 return {
                     legal: true,
                     dat: {
@@ -409,6 +477,13 @@ function analyzeMessage(message, room_info) {
             }
             else {
                 movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+                game_state.moves_to_be_polled.push({
+                    byIAOwner: room_info.is_IA_down_for_me,
+                    move: {
+                        type: "NonTamMove",
+                        data: msg.data
+                    }
+                });
                 return {
                     legal: true,
                     dat: {
@@ -421,6 +496,10 @@ function analyzeMessage(message, room_info) {
             setPiece(game_state, msg.src, null);
             setPiece(game_state, msg.secondDest, "Tam2");
             // tam2 can't take
+            game_state.moves_to_be_polled.push({
+                byIAOwner: room_info.is_IA_down_for_me,
+                move: msg
+            });
             // Tam2 never fails water entry
             return {
                 legal: true,
@@ -559,6 +638,7 @@ function randomEntry() {
                 hop1zuo1OfNonIAOwner: []
             },
             waiting_for_after_half_acceptance: null,
+            moves_to_be_polled: []
         });
         console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`);
         console.log(`${is_first_turn_newToken_turn ? newToken : token} moves first.`);

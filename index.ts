@@ -227,7 +227,24 @@ function isWater([row, col]: AbsoluteCoord): boolean {
 }
 
 function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInfoWithPerspective): Ret_AfterHalfAcceptance {
+  const game_state = room_to_gamestate.get(room_info.room_id)!;
+  const {src, step} = game_state.waiting_for_after_half_acceptance!;
   if (msg.dest == null) {
+    (game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1] as 
+      {byIAOwner: boolean, move: {
+        type: "InfAfterStep";
+        src: AbsoluteCoord;
+        step: AbsoluteCoord;
+        plannedDirection: AbsoluteCoord;
+        stepping_ciurl: Ciurl;
+        finalResult: null /* not yet known */| {
+            dest: AbsoluteCoord;
+            water_entry_ciurl?: Ciurl;
+        };
+      };}
+    ).move.finalResult = {
+      dest: src
+    };
     // hasn't actually moved, so the water entry cannot fail
     return {
       legal: true,
@@ -237,14 +254,28 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
     };
   }
 
-  const game_state = room_to_gamestate.get(room_info.room_id)!;
-  const {src, step} = game_state.waiting_for_after_half_acceptance!;
   const piece = getPiece(game_state, src)!;
 
   game_state.waiting_for_after_half_acceptance = null;
 
   if (isWater(src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
     movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
+    
+    (game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1] as 
+      {byIAOwner: boolean, move: {
+        type: "InfAfterStep";
+        src: AbsoluteCoord;
+        step: AbsoluteCoord;
+        plannedDirection: AbsoluteCoord;
+        stepping_ciurl: Ciurl;
+        finalResult: null /* not yet known */| {
+            dest: AbsoluteCoord;
+            water_entry_ciurl?: Ciurl;
+        };
+      };}
+    ).move.finalResult = {
+      dest: src
+    };
     return ({
       legal: true,
       dat: {
@@ -266,6 +297,23 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
       movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
     }
 
+    (game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1] as 
+      {byIAOwner: boolean, move: {
+        type: "InfAfterStep";
+        src: AbsoluteCoord;
+        step: AbsoluteCoord;
+        plannedDirection: AbsoluteCoord;
+        stepping_ciurl: Ciurl;
+        finalResult: null /* not yet known */| {
+            dest: AbsoluteCoord;
+            water_entry_ciurl?: Ciurl;
+        };
+      };}
+    ).move.finalResult = {
+      dest: src,
+      water_entry_ciurl
+    };
+
     return ({
       legal: true,
       dat: {
@@ -275,6 +323,21 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
     } as Ret_AfterHalfAcceptance);
   } else {
     movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
+    (game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1] as 
+      {byIAOwner: boolean, move: {
+        type: "InfAfterStep";
+        src: AbsoluteCoord;
+        step: AbsoluteCoord;
+        plannedDirection: AbsoluteCoord;
+        stepping_ciurl: Ciurl;
+        finalResult: null /* not yet known */| {
+            dest: AbsoluteCoord;
+            water_entry_ciurl?: Ciurl;
+        };
+      };}
+    ).move.finalResult = {
+      dest: src
+    };
     return ({
       legal: true,
       dat: {
@@ -287,15 +350,28 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
 function analyzeInfAfterStep(msg: InfAfterStep, room_info: RoomInfoWithPerspective): Ret_InfAfterStep {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   game_state.waiting_for_after_half_acceptance = {src: msg.src, step: msg.step};
+  
+  const stepping_ciurl: Ciurl = [
+    Math.random() < 0.5,
+    Math.random() < 0.5,
+    Math.random() < 0.5,
+    Math.random() < 0.5,
+    Math.random() < 0.5
+  ];
+  game_state.moves_to_be_polled.push({
+    byIAOwner: room_info.is_IA_down_for_me,
+    move: {
+      type: msg.type,
+      src: msg.src,
+      step: msg.step,
+      plannedDirection: msg.plannedDirection,
+      stepping_ciurl,
+      finalResult: null
+    }
+  });
   return ({
     legal: true,
-    ciurl: [
-      Math.random() < 0.5,
-      Math.random() < 0.5,
-      Math.random() < 0.5,
-      Math.random() < 0.5,
-      Math.random() < 0.5
-    ] as Ciurl
+    ciurl: stepping_ciurl
   } as Ret_InfAfterStep);
 }
 
@@ -345,6 +421,14 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
             if (maybe_taken != null) { throw new Error("should not happen: already occupied and cannot be placed from hop1 zuo1")}
           }
 
+          game_state.moves_to_be_polled.push({
+            byIAOwner: room_info.is_IA_down_for_me,
+            move: {
+              type: "NonTamMove",
+              data: msg.data
+            }
+          })
+
           // never fails
           return {
             legal: true,
@@ -358,7 +442,13 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
 
         if (isWater(msg.data.src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
           movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
-
+          game_state.moves_to_be_polled.push({
+            byIAOwner: room_info.is_IA_down_for_me,
+            move: {
+              type: "NonTamMove",
+              data: msg.data
+            }
+          });
           // never fails
           return {
             legal: true,
@@ -381,6 +471,35 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
             movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
           }
 
+          const data: SrcDst | SrcStepDstFinite = (() => {
+            if (msg.data.type === "SrcDst") {
+              const ans: SrcDst = {
+                type: msg.data.type,
+                src: msg.data.src,
+                dest: msg.data.dest,
+                water_entry_ciurl: ciurl
+              };
+              return ans;
+            } else if (msg.data.type === "SrcStepDstFinite") {
+              const ans: SrcStepDstFinite = {
+                type: msg.data.type,
+                src: msg.data.src,
+                step: msg.data.step,
+                dest: msg.data.dest,
+                water_entry_ciurl: ciurl
+              };
+              return ans;
+            } else {
+              const _should_not_reach_here: never = msg.data;
+              throw new Error("should not happen");
+            }
+          })();
+
+          game_state.moves_to_be_polled.push({
+            byIAOwner: room_info.is_IA_down_for_me,
+            move: {type: "NonTamMove", data}
+          })
+
           return ({
             legal: true,
             dat: {
@@ -390,6 +509,14 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
           } as Ret_NormalMove);
         } else {
           movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+          
+          game_state.moves_to_be_polled.push({
+            byIAOwner: room_info.is_IA_down_for_me,
+            move: {
+              type: "NonTamMove",
+              data: msg.data
+            }
+          })
           return ({
             legal: true,
             dat: {
@@ -401,6 +528,11 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
         setPiece(game_state, msg.src, null);
         setPiece(game_state, msg.secondDest, "Tam2");
         // tam2 can't take
+
+        game_state.moves_to_be_polled.push({
+          byIAOwner: room_info.is_IA_down_for_me,
+          move: msg
+        });
 
         // Tam2 never fails water entry
         return ({
@@ -546,6 +678,59 @@ export type Tuple9<T> = [T, T, T, T, T, T, T, T, T];
 export type Board = Tuple9<Row>;
 export type Row = Tuple9<Piece | null>;
 
+interface SrcDst {
+  type: "SrcDst";
+  src: AbsoluteCoord;
+  dest: AbsoluteCoord;
+  water_entry_ciurl?: Ciurl;
+}
+
+interface SrcStepDstFinite {
+  type: "SrcStepDstFinite";
+  src: AbsoluteCoord;
+  step: AbsoluteCoord;
+  dest: AbsoluteCoord;
+  water_entry_ciurl?: Ciurl;
+}
+
+interface MoveToBePolledWithPotentialWaterEntry {
+  type: "NonTamMove";
+  data: SrcDst | SrcStepDstFinite;
+}
+
+type MoveToBePolled = MoveToBePolledWithPotentialWaterEntry | {
+  type: "NonTamMove",
+  data: {
+      type: "FromHand";
+      color: Color;
+      prof: Profession;
+      dest: AbsoluteCoord;
+  },
+} | {
+  type: "TamMove"
+  stepStyle: "NoStep";
+  src: AbsoluteCoord;
+  firstDest: AbsoluteCoord;
+  secondDest: AbsoluteCoord;
+} | {
+  type: "TamMove"
+  stepStyle: "StepsDuringFormer" | "StepsDuringLatter";
+  src: AbsoluteCoord;
+  step: AbsoluteCoord;
+  firstDest: AbsoluteCoord;
+  secondDest: AbsoluteCoord;
+} | {
+  type: "InfAfterStep";
+  src: AbsoluteCoord;
+  step: AbsoluteCoord;
+  plannedDirection: AbsoluteCoord;
+  stepping_ciurl: Ciurl;
+  finalResult: null /* not yet known */| {
+      dest: AbsoluteCoord;
+      water_entry_ciurl?: Ciurl;
+  };
+};
+
 interface GameState {
   f: Field;
   tam_itself_is_tam_hue: boolean;
@@ -557,6 +742,10 @@ interface GameState {
   season: Season;
   IA_owner_s_score: number;
   log2_rate: Log2_Rate;
+  moves_to_be_polled: Array<{
+    move: MoveToBePolled,
+    byIAOwner: boolean
+  }>
 }
 
 var waiting_list = new Set<AccessToken>();
@@ -613,6 +802,7 @@ function randomEntry(): RandomEntry {
         hop1zuo1OfNonIAOwner: []
       },
       waiting_for_after_half_acceptance: null,
+      moves_to_be_polled: []
     })
     console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`);
     console.log(`${is_first_turn_newToken_turn ? newToken : token} moves first.`);
