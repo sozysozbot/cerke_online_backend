@@ -260,7 +260,7 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
     const { src, step } = game_state.waiting_for_after_half_acceptance;
     if (msg.dest == null) {
-        game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1].move.finalResult = {
+        game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1].move.finalResult = {
             dest: src
         };
         // hasn't actually moved, so the water entry cannot fail
@@ -275,7 +275,7 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
     game_state.waiting_for_after_half_acceptance = null;
     if (isWater(src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
         movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
-        game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1].move.finalResult = {
+        game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1].move.finalResult = {
             dest: msg.dest
         };
         return {
@@ -296,7 +296,7 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
         if (water_entry_ciurl.filter((a) => a).length >= 3) {
             movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
         }
-        game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1].move.finalResult = {
+        game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1].move.finalResult = {
             dest: water_entry_ciurl.filter((a) => a).length >= 3 ? msg.dest : src,
             water_entry_ciurl
         };
@@ -310,7 +310,7 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
     }
     else {
         movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
-        game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1].move.finalResult = {
+        game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1].move.finalResult = {
             dest: msg.dest
         };
         return {
@@ -331,7 +331,7 @@ function analyzeInfAfterStep(msg, room_info) {
         Math.random() < 0.5,
         Math.random() < 0.5
     ];
-    game_state.moves_to_be_polled.push({
+    game_state.moves_to_be_polled[game_state.season].push({
         byIAOwner: room_info.is_IA_down_for_me,
         move: {
             type: msg.type,
@@ -367,10 +367,10 @@ function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src,
 }
 function replyToInfPoll(room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
-    if (game_state.moves_to_be_polled.length === 0) {
+    if (game_state.moves_to_be_polled[game_state.season].length === 0) {
         return "not good";
     }
-    const dat = game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1];
+    const dat = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
     if (room_info.is_IA_down_for_me === dat.byIAOwner) {
         return "not good";
     }
@@ -384,10 +384,10 @@ function replyToInfPoll(room_info) {
 }
 function replyToMainPoll(room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
-    if (game_state.moves_to_be_polled.length === 0) {
+    if (game_state.moves_to_be_polled[game_state.season].length === 0) {
         return "not yet";
     }
-    const dat = game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1];
+    const dat = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
     if (room_info.is_IA_down_for_me === dat.byIAOwner) {
         return "not yet";
     }
@@ -422,7 +422,7 @@ function analyzeMessage(message, room_info) {
                         throw new Error("should not happen: already occupied and cannot be placed from hop1 zuo1");
                     }
                 }
-                game_state.moves_to_be_polled.push({
+                game_state.moves_to_be_polled[game_state.season].push({
                     byIAOwner: room_info.is_IA_down_for_me,
                     move: {
                         type: "NonTamMove",
@@ -440,7 +440,7 @@ function analyzeMessage(message, room_info) {
             const piece = getPiece(game_state, msg.data.src);
             if (isWater(msg.data.src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
                 movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
-                game_state.moves_to_be_polled.push({
+                game_state.moves_to_be_polled[game_state.season].push({
                     byIAOwner: room_info.is_IA_down_for_me,
                     move: {
                         type: "NonTamMove",
@@ -491,7 +491,7 @@ function analyzeMessage(message, room_info) {
                         throw new Error("should not happen");
                     }
                 })();
-                game_state.moves_to_be_polled.push({
+                game_state.moves_to_be_polled[game_state.season].push({
                     byIAOwner: room_info.is_IA_down_for_me,
                     move: { type: "NonTamMove", data }
                 });
@@ -505,7 +505,7 @@ function analyzeMessage(message, room_info) {
             }
             else {
                 movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
-                game_state.moves_to_be_polled.push({
+                game_state.moves_to_be_polled[game_state.season].push({
                     byIAOwner: room_info.is_IA_down_for_me,
                     move: {
                         type: "NonTamMove",
@@ -524,7 +524,7 @@ function analyzeMessage(message, room_info) {
             setPiece(game_state, msg.src, null);
             setPiece(game_state, msg.secondDest, "Tam2");
             // tam2 can't take
-            game_state.moves_to_be_polled.push({
+            game_state.moves_to_be_polled[game_state.season].push({
                 byIAOwner: room_info.is_IA_down_for_me,
                 move: msg
             });
@@ -708,7 +708,7 @@ function randomEntry() {
                 hop1zuo1OfNonIAOwner: []
             },
             waiting_for_after_half_acceptance: null,
-            moves_to_be_polled: []
+            moves_to_be_polled: [[], [], [], []]
         });
         console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`);
         console.log(`${is_first_turn_newToken_turn ? newToken : token} moves first.`);

@@ -233,7 +233,7 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   const {src, step} = game_state.waiting_for_after_half_acceptance!;
   if (msg.dest == null) {
-    (game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1] as 
+    (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
       {byIAOwner: boolean, move: {
         type: "InfAfterStep";
         src: AbsoluteCoord;
@@ -264,7 +264,7 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
   if (isWater(src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
     movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
     
-    (game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1] as 
+    (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
       {byIAOwner: boolean, move: {
         type: "InfAfterStep";
         src: AbsoluteCoord;
@@ -300,7 +300,7 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
       movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
     }
 
-    (game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1] as 
+    (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
       {byIAOwner: boolean, move: {
         type: "InfAfterStep";
         src: AbsoluteCoord;
@@ -326,7 +326,7 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
     } as Ret_AfterHalfAcceptance);
   } else {
     movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
-    (game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1] as 
+    (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
       {byIAOwner: boolean, move: {
         type: "InfAfterStep";
         src: AbsoluteCoord;
@@ -361,7 +361,7 @@ function analyzeInfAfterStep(msg: InfAfterStep, room_info: RoomInfoWithPerspecti
     Math.random() < 0.5,
     Math.random() < 0.5
   ];
-  game_state.moves_to_be_polled.push({
+  game_state.moves_to_be_polled[game_state.season].push({
     byIAOwner: room_info.is_IA_down_for_me,
     move: {
       type: msg.type,
@@ -400,10 +400,10 @@ function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
 
 function replyToInfPoll(room_info: RoomInfoWithPerspective): MoveToBePolled | "not yet" | "not good" {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
-  if (game_state.moves_to_be_polled.length === 0) {
+  if (game_state.moves_to_be_polled[game_state.season].length === 0) {
     return "not good";
   }
-  const dat = game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1];
+  const dat = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
   if (room_info.is_IA_down_for_me === dat.byIAOwner) {
     return "not good";
   }
@@ -421,10 +421,10 @@ function replyToInfPoll(room_info: RoomInfoWithPerspective): MoveToBePolled | "n
 
 function replyToMainPoll(room_info: RoomInfoWithPerspective): MoveToBePolled | "not yet" {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
-  if (game_state.moves_to_be_polled.length === 0) {
+  if (game_state.moves_to_be_polled[game_state.season].length === 0) {
     return "not yet";
   }
-  const dat = game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1];
+  const dat = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
   if (room_info.is_IA_down_for_me === dat.byIAOwner) {
     return "not yet";
   }
@@ -457,7 +457,7 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
             if (maybe_taken != null) { throw new Error("should not happen: already occupied and cannot be placed from hop1 zuo1")}
           }
 
-          game_state.moves_to_be_polled.push({
+          game_state.moves_to_be_polled[game_state.season].push({
             byIAOwner: room_info.is_IA_down_for_me,
             move: {
               type: "NonTamMove",
@@ -478,7 +478,7 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
 
         if (isWater(msg.data.src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
           movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
-          game_state.moves_to_be_polled.push({
+          game_state.moves_to_be_polled[game_state.season].push({
             byIAOwner: room_info.is_IA_down_for_me,
             move: {
               type: "NonTamMove",
@@ -531,7 +531,7 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
             }
           })();
 
-          game_state.moves_to_be_polled.push({
+          game_state.moves_to_be_polled[game_state.season].push({
             byIAOwner: room_info.is_IA_down_for_me,
             move: {type: "NonTamMove", data}
           })
@@ -546,7 +546,7 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
         } else {
           movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
           
-          game_state.moves_to_be_polled.push({
+          game_state.moves_to_be_polled[game_state.season].push({
             byIAOwner: room_info.is_IA_down_for_me,
             move: {
               type: "NonTamMove",
@@ -565,7 +565,7 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
         setPiece(game_state, msg.secondDest, "Tam2");
         // tam2 can't take
 
-        game_state.moves_to_be_polled.push({
+        game_state.moves_to_be_polled[game_state.season].push({
           byIAOwner: room_info.is_IA_down_for_me,
           move: msg
         });
@@ -773,10 +773,19 @@ interface GameState {
   season: Season;
   IA_owner_s_score: number;
   log2_rate: Log2_Rate;
-  moves_to_be_polled: Array<{
+  moves_to_be_polled: [Array<{
     move: MoveToBePolled,
     byIAOwner: boolean
-  }>
+  }>, Array<{
+    move: MoveToBePolled,
+    byIAOwner: boolean
+  }>, Array<{
+    move: MoveToBePolled,
+    byIAOwner: boolean
+  }>, Array<{
+    move: MoveToBePolled,
+    byIAOwner: boolean
+  }>]
 }
 
 var waiting_list = new Set<AccessToken>();
@@ -833,7 +842,7 @@ function randomEntry(): RandomEntry {
         hop1zuo1OfNonIAOwner: []
       },
       waiting_for_after_half_acceptance: null,
-      moves_to_be_polled: []
+      moves_to_be_polled: [[], [], [], []]
     })
     console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`);
     console.log(`${is_first_turn_newToken_turn ? newToken : token} moves first.`);
