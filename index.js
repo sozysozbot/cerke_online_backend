@@ -276,13 +276,16 @@ function randomEntry() {
     for (let token of waiting_list) {
         waiting_list.delete(token);
         const room_id = open_a_room(token, newToken);
-        person_to_room.set(newToken, room_id);
-        person_to_room.set(token, room_id);
+        const is_first_turn_newToken_turn = Math.random() < 0.5;
+        person_to_room.set(newToken, { room_id, is_first_move_my_move: is_first_turn_newToken_turn });
+        person_to_room.set(token, { room_id, is_first_move_my_move: !is_first_turn_newToken_turn });
         console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`);
+        console.log(`${is_first_turn_newToken_turn ? newToken : token} moves first.`);
         // exit after finding the first person
         return {
             "state": "let_the_game_begin",
-            "access_token": newToken
+            "access_token": newToken,
+            is_first_move_my_move: is_first_turn_newToken_turn
         };
     }
     // If you are still here, that means no one is found
@@ -306,7 +309,8 @@ function random_poll(req, res) {
                 legal: true,
                 ret: {
                     "state": "let_the_game_begin",
-                    "access_token": msg.access_token
+                    "access_token": msg.access_token,
+                    is_first_move_my_move: maybe_room_id.is_first_move_my_move
                 }
             };
         }

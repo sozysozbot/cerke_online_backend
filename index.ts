@@ -301,7 +301,7 @@ type RoomId = string & { __RoomIdBrand: never };
 type AccessToken = string & { __AccessTokenBrand: never };
 
 var waiting_list = new Set<AccessToken>();
-var person_to_room = new Map<AccessToken, RoomId>();
+var person_to_room = new Map<AccessToken, {room_id: RoomId, is_first_move_my_move: boolean}>();
 
 function open_a_room(token1: AccessToken, token2: AccessToken): RoomId {
   console.log("A match between", token1, "and", token2, "will begin.");
@@ -315,14 +315,19 @@ function randomEntry(): RandomEntry {
   for (let token of waiting_list) {
     waiting_list.delete(token);
     const room_id = open_a_room(token, newToken);
-    person_to_room.set(newToken, room_id);
-    person_to_room.set(token, room_id);
-    console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`)
+
+    const is_first_turn_newToken_turn = Math.random() < 0.5;
+
+    person_to_room.set(newToken, {room_id, is_first_move_my_move: is_first_turn_newToken_turn});
+    person_to_room.set(token, {room_id, is_first_move_my_move: !is_first_turn_newToken_turn});
+    console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`);
+    console.log(`${is_first_turn_newToken_turn ? newToken : token} moves first.`);
 
     // exit after finding the first person
     return {
       "state": "let_the_game_begin",
-      "access_token": newToken
+      "access_token": newToken,
+      is_first_move_my_move: is_first_turn_newToken_turn
     };
   }
 
@@ -346,13 +351,14 @@ function random_poll(req: Request, res: Response) {
     PollVerifier.decode(req.body),
     fold(onLeft, function (msg: { "access_token": string }): Ret_RandomPoll {
       const access_token = msg.access_token as AccessToken
-      const maybe_room_id: RoomId | undefined = person_to_room.get(access_token)
+      const maybe_room_id: {room_id: RoomId, is_first_move_my_move: boolean} | undefined = person_to_room.get(access_token)
       if (typeof maybe_room_id !== "undefined") {
         return {
           legal: true,
           ret: {
             "state": "let_the_game_begin",
-            "access_token": msg.access_token
+            "access_token": msg.access_token,
+            is_first_move_my_move: maybe_room_id.is_first_move_my_move
           }
         }
       } else if (waiting_list.has(access_token)) { // not yet assigned a room, but is in the waiting list
@@ -386,7 +392,7 @@ function random_cancel(req: Request, res: Response) {
     PollVerifier.decode(req.body),
     fold(onLeft, function (msg: { "access_token": string }): Ret_RandomCancel {
       const access_token = msg.access_token as AccessToken
-      const maybe_room_id: RoomId | undefined = person_to_room.get(access_token)
+      const maybe_room_id: {room_id: RoomId, is_first_move_my_move: boolean} | undefined = person_to_room.get(access_token)
 
       // you already have a room. you cannot cancel
       if (typeof maybe_room_id !== "undefined") {
