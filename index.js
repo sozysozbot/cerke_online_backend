@@ -365,6 +365,14 @@ function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src,
         }
     }
 }
+function replyToMainPoll(room_info) {
+    const game_state = room_to_gamestate.get(room_info.room_id);
+    const dat = game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1];
+    if (room_info.is_IA_down_for_me === dat.byIAOwner) {
+        return null;
+    }
+    return dat.move;
+}
 function analyzeMessage(message, room_info) {
     const onLeft = (errors) => ({
         legal: false,
@@ -540,6 +548,7 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
     }
 })
     .post('/', main)
+    .post('/mainpoll', mainpoll)
     .post('/slow', (req, res) => {
     (async () => {
         let time = Math.random() * 1000 | 0;
@@ -553,6 +562,26 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
     .post('/random/poll', random_poll)
     .post('/random/cancel', random_cancel)
     .listen(PORT, () => console.log(`Listening on ${PORT}`));
+function mainpoll(req, res) {
+    console.log(req.body);
+    const authorization = req.headers.authorization;
+    if (authorization == null) {
+        res.send('null'); // FIXME: does not conform to RFC 6750
+        return;
+    }
+    else if (authorization.slice(0, 7) !== "Bearer ") {
+        res.send('null'); // FIXME: does not conform to RFC 6750
+        return;
+    }
+    const token_ = authorization.slice(7);
+    const maybe_room_info = person_to_room.get(token_);
+    if (typeof maybe_room_info === "undefined") {
+        res.send('null');
+        return;
+    }
+    console.log("from", req.headers.authorization);
+    res.json(replyToMainPoll(maybe_room_info));
+}
 function main(req, res) {
     console.log(req.body);
     const authorization = req.headers.authorization;
