@@ -398,11 +398,14 @@ function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
   }
 }
 
-function replyToMainPoll(room_info: RoomInfoWithPerspective): MoveToBePolled | null {
+function replyToMainPoll(room_info: RoomInfoWithPerspective): MoveToBePolled | "not yet" {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
+  if (game_state.moves_to_be_polled.length === 0) {
+    return "not yet";
+  }
   const dat = game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1];
   if (room_info.is_IA_down_for_me === dat.byIAOwner) {
-    return null;
+    return "not yet";
   }
   return dat.move;
 }
