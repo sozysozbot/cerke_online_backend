@@ -13,6 +13,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const uuidv4 = require('uuid/v4');
 const express_1 = __importDefault(require("express"));
 const path_1 = __importDefault(require("path"));
+var Profession = type__message.Profession;
+var Color = type__message.Color;
 const t = __importStar(require("io-ts"));
 const pipeable_1 = require("fp-ts/lib/pipeable");
 const Either_1 = require("fp-ts/lib/Either");
@@ -264,8 +266,14 @@ function main(req, res) {
     }
     res.json(analyzeMessage(message));
 }
+var Side;
+(function (Side) {
+    Side[Side["IAOwner"] = 0] = "IAOwner";
+    Side[Side["NonIAOwner"] = 1] = "NonIAOwner";
+})(Side = exports.Side || (exports.Side = {}));
 var waiting_list = new Set();
 var person_to_room = new Map();
+var room_to_gamestate = new Map();
 function open_a_room(token1, token2) {
     console.log("A match between", token1, "and", token2, "will begin.");
     // FIXME
@@ -287,6 +295,30 @@ function randomEntry() {
             room_id,
             is_first_move_my_move: !is_first_turn_newToken_turn,
             is_IA_down_for_me: !is_IA_down_for_newToken
+        });
+        room_to_gamestate.set(room_id, {
+            tam_itself_is_tam_hue: true,
+            season: 0,
+            log2_rate: 0,
+            IA_owner_s_score: 20,
+            is_IA_owner_s_turn: is_first_turn_newToken_turn === is_IA_down_for_newToken,
+            f: {
+                currentBoard: [
+                    [{ color: Color.Huok2, prof: Profession.Kua2, side: Side.NonIAOwner },
+                        { color: Color.Huok2, prof: Profession.Maun1, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kaun1, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Uai1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Io, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Uai1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kaun1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Maun1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kua2, side: Side.NonIAOwner }],
+                    [{ color: Color.Kok1, prof: Profession.Tuk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Gua2, side: Side.NonIAOwner }, null, { color: Color.Kok1, prof: Profession.Dau2, side: Side.NonIAOwner }, null, { color: Color.Huok2, prof: Profession.Dau2, side: Side.NonIAOwner }, null, { color: Color.Huok2, prof: Profession.Gua2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Tuk2, side: Side.NonIAOwner }],
+                    [{ color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Nuak1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }],
+                    [null, null, null, null, null, null, null, null, null],
+                    [null, null, null, null, "Tam2", null, null, null, null],
+                    [null, null, null, null, null, null, null, null, null],
+                    [{ color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Nuak1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }],
+                    [{ color: Color.Huok2, prof: Profession.Tuk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Gua2, side: Side.IAOwner }, null, { color: Color.Huok2, prof: Profession.Dau2, side: Side.IAOwner }, null, { color: Color.Kok1, prof: Profession.Dau2, side: Side.IAOwner }, null, { color: Color.Kok1, prof: Profession.Gua2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Tuk2, side: Side.IAOwner }],
+                    [{ color: Color.Kok1, prof: Profession.Kua2, side: Side.IAOwner },
+                        { color: Color.Kok1, prof: Profession.Maun1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kaun1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Uai1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Io, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Uai1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kaun1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Maun1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kua2, side: Side.IAOwner }],
+                ],
+                hop1zuo1OfIAOwner: [],
+                hop1zuo1OfNonIAOwner: []
+            }
         });
         console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`);
         console.log(`${is_first_turn_newToken_turn ? newToken : token} moves first.`);

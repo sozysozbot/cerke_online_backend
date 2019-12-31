@@ -302,8 +302,62 @@ type AccessToken = string & { __AccessTokenBrand: never };
 
 type RoomInfoWithPerspective = {room_id: RoomId, is_first_move_my_move: boolean, is_IA_down_for_me: boolean};
 
+type Season = 0 | 1 | 2 | 3;
+type Log2_Rate = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+/*
+ * Theoretically speaking, it is necessary to distinguish x32 and x64
+ * because it is possible to score 1 point (3+3-5).
+ * Not that it will ever be of use in any real situation.
+ */
+
+interface Field {
+  currentBoard: Board;
+  hop1zuo1OfIAOwner: NonTam2PieceIAOwner[];
+  hop1zuo1OfNonIAOwner: NonTam2PieceNonIAOwner[];
+}
+
+export enum Side {
+  IAOwner,
+  NonIAOwner,
+}
+
+export interface NonTam2PieceNonIAOwner {
+  color: Color; // The color of the piece
+  prof: Profession; // The profession of the piece
+  side: Side.NonIAOwner; // The side that the piece belongs to
+}
+
+export interface NonTam2PieceIAOwner {
+  color: Color; // The color of the piece
+  prof: Profession; // The profession of the piece
+  side: Side.IAOwner; // The side that the piece belongs to
+}
+
+export interface NonTam2Piece {
+  color: Color; // The color of the piece
+  prof: Profession; // The profession of the piece
+  side: Side; // The side that the piece belongs to
+}
+
+export type Piece = "Tam2" | NonTam2Piece;
+
+export type Tuple9<T> = [T, T, T, T, T, T, T, T, T];
+
+export type Board = Tuple9<Row>;
+export type Row = Tuple9<Piece | null>;
+
+interface GameState {
+  f: Field;
+  tam_itself_is_tam_hue: boolean;
+  is_IA_owner_s_turn: boolean;
+  season: Season;
+  IA_owner_s_score: number;
+  log2_rate: Log2_Rate;
+}
+
 var waiting_list = new Set<AccessToken>();
 var person_to_room = new Map<AccessToken, RoomInfoWithPerspective >();
+var room_to_gamestate = new Map<RoomId, GameState>();
 
 function open_a_room(token1: AccessToken, token2: AccessToken): RoomId {
   console.log("A match between", token1, "and", token2, "will begin.");
@@ -331,6 +385,30 @@ function randomEntry(): RandomEntry {
       is_first_move_my_move: !is_first_turn_newToken_turn,
       is_IA_down_for_me: !is_IA_down_for_newToken
     });
+    room_to_gamestate.set(room_id, {
+      tam_itself_is_tam_hue: true,
+      season: 0,
+      log2_rate: 0,
+      IA_owner_s_score: 20,
+      is_IA_owner_s_turn: is_first_turn_newToken_turn === is_IA_down_for_newToken,
+      f: {
+        currentBoard: [
+          [{ color: Color.Huok2, prof: Profession.Kua2, side: Side.NonIAOwner },
+              { color: Color.Huok2, prof: Profession.Maun1, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kaun1, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Uai1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Io, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Uai1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kaun1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Maun1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kua2, side: Side.NonIAOwner }],
+          [{ color: Color.Kok1, prof: Profession.Tuk2, side: Side.NonIAOwner }, {color: Color.Kok1, prof: Profession.Gua2, side: Side.NonIAOwner }, null, { color: Color.Kok1, prof: Profession.Dau2, side: Side.NonIAOwner }, null, { color: Color.Huok2, prof: Profession.Dau2, side: Side.NonIAOwner }, null, {color: Color.Huok2, prof: Profession.Gua2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Tuk2, side: Side.NonIAOwner }],
+          [{ color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Nuak1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }],
+          [null, null, null, null, null, null, null, null, null],
+          [null, null, null, null, "Tam2", null, null, null, null],
+          [null, null, null, null, null, null, null, null, null],
+          [{ color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Nuak1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }],
+          [{ color: Color.Huok2, prof: Profession.Tuk2, side: Side.IAOwner }, {color: Color.Huok2, prof: Profession.Gua2, side: Side.IAOwner }, null, { color: Color.Huok2, prof: Profession.Dau2, side: Side.IAOwner }, null, { color: Color.Kok1, prof: Profession.Dau2, side: Side.IAOwner }, null, {color: Color.Kok1, prof: Profession.Gua2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Tuk2, side: Side.IAOwner }],
+          [{ color: Color.Kok1, prof: Profession.Kua2, side: Side.IAOwner },
+              { color: Color.Kok1, prof: Profession.Maun1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kaun1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Uai1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Io, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Uai1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kaun1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Maun1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kua2, side: Side.IAOwner }],
+        ],
+        hop1zuo1OfIAOwner: [],
+        hop1zuo1OfNonIAOwner: []
+      }
+    })
     console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`);
     console.log(`${is_first_turn_newToken_turn ? newToken : token} moves first.`);
     console.log(`IA is down, from the perspective of ${is_IA_down_for_newToken ? newToken : token}.`);
