@@ -113,6 +113,79 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: true
 });
+function getPiece(game_state, coord) {
+    function fromAbsoluteCoord_([absrow, abscol]) {
+        let rowind;
+        if (absrow === "A") {
+            rowind = 0;
+        }
+        else if (absrow === "E") {
+            rowind = 1;
+        }
+        else if (absrow === "I") {
+            rowind = 2;
+        }
+        else if (absrow === "U") {
+            rowind = 3;
+        }
+        else if (absrow === "O") {
+            rowind = 4;
+        }
+        else if (absrow === "Y") {
+            rowind = 5;
+        }
+        else if (absrow === "AI") {
+            rowind = 6;
+        }
+        else if (absrow === "AU") {
+            rowind = 7;
+        }
+        else if (absrow === "IA") {
+            rowind = 8;
+        }
+        else {
+            const _should_not_reach_here = absrow;
+            throw new Error("does not happen");
+        }
+        let colind;
+        if (abscol === "K") {
+            colind = 0;
+        }
+        else if (abscol === "L") {
+            colind = 1;
+        }
+        else if (abscol === "N") {
+            colind = 2;
+        }
+        else if (abscol === "T") {
+            colind = 3;
+        }
+        else if (abscol === "Z") {
+            colind = 4;
+        }
+        else if (abscol === "X") {
+            colind = 5;
+        }
+        else if (abscol === "C") {
+            colind = 6;
+        }
+        else if (abscol === "M") {
+            colind = 7;
+        }
+        else if (abscol === "P") {
+            colind = 8;
+        }
+        else {
+            const _should_not_reach_here = abscol;
+            throw new Error("does not happen");
+        }
+        if (true) {
+            return [rowind, colind];
+        }
+    }
+    const [i, j] = fromAbsoluteCoord_(coord);
+    return game_state.f.currentBoard[i][j];
+}
 function isWater([row, col]) {
     return (row === "O" && col === "N")
         || (row === "O" && col === "T")
@@ -124,7 +197,7 @@ function isWater([row, col]) {
         || (row === "Y" && col === "Z")
         || (row === "AI" && col === "Z");
 }
-function analyzeAfterHalfAcceptance(msg) {
+function analyzeAfterHalfAcceptance(msg, room_info) {
     if (msg.dest == null) {
         // hasn't actually moved, so the water entry cannot fail
         return {
@@ -152,7 +225,7 @@ function analyzeAfterHalfAcceptance(msg) {
         }
     };
 }
-function analyzeInfAfterStep(msg) {
+function analyzeInfAfterStep(msg, room_info) {
     return {
         legal: true,
         ciurl: [
@@ -164,17 +237,17 @@ function analyzeInfAfterStep(msg) {
         ]
     };
 }
-function analyzeMessage(message) {
+function analyzeMessage(message, room_info) {
     const onLeft = (errors) => ({
         legal: false,
         whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
     });
     return pipeable_1.pipe(Verifier.decode(message), Either_1.fold(onLeft, function (msg) {
         if (msg.type === 'InfAfterStep') { /* InfAfterStep */
-            return analyzeInfAfterStep(msg);
+            return analyzeInfAfterStep(msg, room_info);
         }
         else if (msg.type === 'AfterHalfAcceptance') {
-            return analyzeAfterHalfAcceptance(msg);
+            return analyzeAfterHalfAcceptance(msg, room_info);
         }
         else if (msg.type === 'NonTamMove') {
             if (msg.data.type === 'FromHand') {
@@ -195,8 +268,17 @@ function analyzeMessage(message) {
                     }
                 };
             }
-            // FIXME: should not fail if Nuak1, Vessel, 船, felkana
-            // FIXME: should not fail if the starting point is also on water
+            const game_state = room_to_gamestate.get(room_info.room_id);
+            const piece = getPiece(game_state, msg.data.src);
+            if (piece !== "Tam2" && piece.prof === Profession.Nuak1) {
+                // never fails
+                return {
+                    legal: true,
+                    dat: {
+                        waterEntryHappened: false
+                    }
+                };
+            }
             return {
                 legal: true,
                 dat: isWater(msg.data.dest) ? {
@@ -269,6 +351,22 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
     .listen(PORT, () => console.log(`Listening on ${PORT}`));
 function main(req, res) {
     console.log(req.body);
+    const authorization = req.headers.authorization;
+    if (authorization == null) {
+        res.send('null'); // FIXME: does not conform to RFC 6750
+        return;
+    }
+    else if (authorization.slice(0, 7) !== "Bearer ") {
+        res.send('null'); // FIXME: does not conform to RFC 6750
+        return;
+    }
+    const token_ = authorization.slice(7);
+    const maybe_room_info = person_to_room.get(token_);
+    if (typeof maybe_room_info === "undefined") {
+        res.send('null');
+        return;
+    }
+    const token = token_;
     console.log("from", req.headers.authorization);
     let message = req.body.message;
     if (typeof message !== "object") {
@@ -281,7 +379,7 @@ function main(req, res) {
         res.send('null');
         return;
     }
-    res.json(analyzeMessage(message));
+    res.json(analyzeMessage(message, maybe_room_info));
 }
 var Side;
 (function (Side) {
