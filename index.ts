@@ -126,7 +126,7 @@ const pool = new Pool({
   ssl: true
 });
 
-function getPiece(game_state: GameState, coord: AbsoluteCoord): Piece | null {
+const {getPiece, setPiece} = (() => {
   function fromAbsoluteCoord_([absrow, abscol]: AbsoluteCoord): [number, number] {
     let rowind: number;
 
@@ -146,8 +146,71 @@ function getPiece(game_state: GameState, coord: AbsoluteCoord): Piece | null {
         return [rowind, colind];
     }
   }
-  const [i, j] = fromAbsoluteCoord_(coord);
-  return game_state.f.currentBoard[i][j];
+
+  function getPiece(game_state: GameState, coord: AbsoluteCoord) {
+    const [i, j] = fromAbsoluteCoord_(coord);
+    return game_state.f.currentBoard[i][j];
+  }
+
+  function setPiece(game_state: GameState, coord: AbsoluteCoord, piece: Piece | null) {
+    const [i, j] = fromAbsoluteCoord_(coord);
+    const originally_occupied_by = game_state.f.currentBoard[i][j];
+    game_state.f.currentBoard[i][j] = piece;
+    return originally_occupied_by
+  }
+return {getPiece, setPiece};
+})()
+
+function isNonTam2PieceIAOwner(piece: Piece): piece is NonTam2PieceIAOwner {
+  if (piece === "Tam2") { return false; }
+  if (piece.side === Side.IAOwner) { return true; }
+  return false;
+}
+
+function isNonTam2PieceNonIAOwner(piece: Piece): piece is NonTam2PieceNonIAOwner {
+  if (piece === "Tam2") { return false; }
+  if (piece.side === Side.NonIAOwner) { return true; }
+  return false;
+}
+
+function addToHop1Zuo1OfIAOwner(game_state: GameState, piece: NonTam2PieceNonIAOwner) {
+  const flipped: NonTam2PieceIAOwner = {
+    prof: piece.prof,
+    color: piece.color,
+    side: Side.IAOwner
+  };
+  game_state.f.hop1zuo1OfIAOwner.push(flipped);
+}
+
+function addToHop1Zuo1OfNonIAOwner(game_state: GameState, piece: NonTam2PieceIAOwner) {
+  const flipped: NonTam2PieceNonIAOwner = {
+    prof: piece.prof,
+    color: piece.color,
+    side: Side.NonIAOwner
+  };
+  game_state.f.hop1zuo1OfNonIAOwner.push(flipped);
+}
+
+function removeFromHop1Zuo1OfIAOwner(game_state: GameState, color: Color, prof: Profession): NonTam2PieceIAOwner {
+  const ind = game_state.f.hop1zuo1OfIAOwner.findIndex(
+    (p) => p.color === color && p.prof === prof,
+  );
+  if (ind === -1) {
+      throw new Error("What should exist in the hand does not exist");
+  }
+  const [removed] = game_state.f.hop1zuo1OfIAOwner.splice(ind, 1);
+  return removed;
+}
+
+function removeFromHop1Zuo1OfNonIAOwner(game_state: GameState, color: Color, prof: Profession): NonTam2PieceNonIAOwner {
+  const ind = game_state.f.hop1zuo1OfNonIAOwner.findIndex(
+    (p) => p.color === color && p.prof === prof,
+  );
+  if (ind === -1) {
+      throw new Error("What should exist in the hand does not exist");
+  }
+  const [removed] = game_state.f.hop1zuo1OfNonIAOwner.splice(ind, 1);
+  return removed;
 }
 
 function isWater([row, col]: AbsoluteCoord): boolean {
@@ -207,6 +270,26 @@ function analyzeInfAfterStep(msg: InfAfterStep, room_info: RoomInfoWithPerspecti
   } as Ret_InfAfterStep);
 }
 
+function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
+  game_state: GameState, src: AbsoluteCoord, dest: AbsoluteCoord,
+  is_IA_down_for_me: boolean) {
+  const piece = setPiece(game_state, src, null)!;
+  const maybe_taken = setPiece(game_state, dest, piece);
+  if (maybe_taken != null) {
+    if (is_IA_down_for_me) {
+      if (!isNonTam2PieceNonIAOwner(maybe_taken)) {
+        throw new Error("tried to take either an ally or tam2");
+      }
+      addToHop1Zuo1OfIAOwner(game_state, maybe_taken)
+    } else {
+      if (!isNonTam2PieceIAOwner(maybe_taken)) {
+        throw new Error("tried to take either an ally or tam2");
+      }
+      addToHop1Zuo1OfNonIAOwner(game_state, maybe_taken)
+    }
+  }
+}
+
 function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Ret_InfAfterStep | Ret_AfterHalfAcceptance | Ret_NormalMove {
   const onLeft = (errors: t.Errors): Ret_InfAfterStep | Ret_AfterHalfAcceptance | Ret_NormalMove => ({
     legal: false,
@@ -216,12 +299,23 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
   return pipe(
     Verifier.decode(message),
     fold(onLeft, function (msg: InfAfterStep | AfterHalfAcceptance | NormalMove) {
+      const game_state = room_to_gamestate.get(room_info.room_id)!;
       if (msg.type === 'InfAfterStep') { /* InfAfterStep */
         return analyzeInfAfterStep(msg, room_info);
       } else if (msg.type === 'AfterHalfAcceptance') {
         return analyzeAfterHalfAcceptance(msg, room_info);
       } else if (msg.type === 'NonTamMove') {
         if (msg.data.type === 'FromHand') {
+          if (room_info.is_IA_down_for_me) {
+            const removed = removeFromHop1Zuo1OfIAOwner(game_state, msg.data.color, msg.data.prof);
+            const maybe_taken = setPiece(game_state, msg.data.dest, removed);
+            if (maybe_taken != null) { throw new Error("should not happen: already occupied and cannot be placed from hop1 zuo1")}
+          } else {
+            const removed = removeFromHop1Zuo1OfNonIAOwner(game_state, msg.data.color, msg.data.prof);
+            const maybe_taken = setPiece(game_state, msg.data.dest, removed);
+            if (maybe_taken != null) { throw new Error("should not happen: already occupied and cannot be placed from hop1 zuo1")}
+          }
+
           // never fails
           return {
             legal: true,
@@ -230,22 +324,12 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
             }
           };
         }
-
-        if (isWater(msg.data.src)) {
-          // never fails
-          return {
-            legal: true,
-            dat: {
-              waterEntryHappened: false
-            }
-          };
-        }
-
-        const game_state = room_to_gamestate.get(room_info.room_id)!;
 
         const piece = getPiece(game_state, msg.data.src)!;
 
-        if (piece !== "Tam2" && piece.prof === Profession.Nuak1) {
+        if (isWater(msg.data.src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
+          movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+
           // never fails
           return {
             legal: true,
@@ -255,22 +339,39 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
           };
         }
 
-        return ({
-          legal: true,
-          dat: isWater(msg.data.dest) ? {
-            waterEntryHappened: true,
-            ciurl: [
-              Math.random() < 0.5,
-              Math.random() < 0.5,
-              Math.random() < 0.5,
-              Math.random() < 0.5,
-              Math.random() < 0.5
-            ] as Ciurl
-          } : {
-              waterEntryHappened: false
-            }
-        } as Ret_NormalMove);
+        if (isWater(msg.data.dest)) {
+          const ciurl: Ciurl = [
+            Math.random() < 0.5,
+            Math.random() < 0.5,
+            Math.random() < 0.5,
+            Math.random() < 0.5,
+            Math.random() < 0.5
+          ];
+
+          if (ciurl.filter((a) => a).length >= 3) {
+            movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+          }
+
+          return ({
+            legal: true,
+            dat: {
+              waterEntryHappened: true,
+              ciurl
+            } 
+          } as Ret_NormalMove);
+        } else {
+          movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+          return ({
+            legal: true,
+            dat: {
+                waterEntryHappened: false
+              }
+          } as Ret_NormalMove);
+        }
       } else if (msg.type === 'TamMove') {
+        setPiece(game_state, msg.src, null);
+        setPiece(game_state, msg.secondDest, "Tam2");
+        // tam2 can't take
 
         // Tam2 never fails water entry
         return ({
@@ -348,8 +449,6 @@ function main(req: Request, res: Response) {
     res.send('null');
     return;
   }
-
-  const token: AccessToken = token_ as AccessToken;
   
   console.log("from", req.headers.authorization);
   let message: unknown = req.body.message;

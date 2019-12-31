@@ -113,7 +113,7 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: true
 });
-function getPiece(game_state, coord) {
+const { getPiece, setPiece } = (() => {
     function fromAbsoluteCoord_([absrow, abscol]) {
         let rowind;
         if (absrow === "A") {
@@ -183,8 +183,67 @@ function getPiece(game_state, coord) {
             return [rowind, colind];
         }
     }
-    const [i, j] = fromAbsoluteCoord_(coord);
-    return game_state.f.currentBoard[i][j];
+    function getPiece(game_state, coord) {
+        const [i, j] = fromAbsoluteCoord_(coord);
+        return game_state.f.currentBoard[i][j];
+    }
+    function setPiece(game_state, coord, piece) {
+        const [i, j] = fromAbsoluteCoord_(coord);
+        const originally_occupied_by = game_state.f.currentBoard[i][j];
+        game_state.f.currentBoard[i][j] = piece;
+        return originally_occupied_by;
+    }
+    return { getPiece, setPiece };
+})();
+function isNonTam2PieceIAOwner(piece) {
+    if (piece === "Tam2") {
+        return false;
+    }
+    if (piece.side === Side.IAOwner) {
+        return true;
+    }
+    return false;
+}
+function isNonTam2PieceNonIAOwner(piece) {
+    if (piece === "Tam2") {
+        return false;
+    }
+    if (piece.side === Side.NonIAOwner) {
+        return true;
+    }
+    return false;
+}
+function addToHop1Zuo1OfIAOwner(game_state, piece) {
+    const flipped = {
+        prof: piece.prof,
+        color: piece.color,
+        side: Side.IAOwner
+    };
+    game_state.f.hop1zuo1OfIAOwner.push(flipped);
+}
+function addToHop1Zuo1OfNonIAOwner(game_state, piece) {
+    const flipped = {
+        prof: piece.prof,
+        color: piece.color,
+        side: Side.NonIAOwner
+    };
+    game_state.f.hop1zuo1OfNonIAOwner.push(flipped);
+}
+function removeFromHop1Zuo1OfIAOwner(game_state, color, prof) {
+    const ind = game_state.f.hop1zuo1OfIAOwner.findIndex((p) => p.color === color && p.prof === prof);
+    if (ind === -1) {
+        throw new Error("What should exist in the hand does not exist");
+    }
+    const [removed] = game_state.f.hop1zuo1OfIAOwner.splice(ind, 1);
+    return removed;
+}
+function removeFromHop1Zuo1OfNonIAOwner(game_state, color, prof) {
+    const ind = game_state.f.hop1zuo1OfNonIAOwner.findIndex((p) => p.color === color && p.prof === prof);
+    if (ind === -1) {
+        throw new Error("What should exist in the hand does not exist");
+    }
+    const [removed] = game_state.f.hop1zuo1OfNonIAOwner.splice(ind, 1);
+    return removed;
 }
 function isWater([row, col]) {
     return (row === "O" && col === "N")
@@ -237,12 +296,31 @@ function analyzeInfAfterStep(msg, room_info) {
         ]
     };
 }
+function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, dest, is_IA_down_for_me) {
+    const piece = setPiece(game_state, src, null);
+    const maybe_taken = setPiece(game_state, dest, piece);
+    if (maybe_taken != null) {
+        if (is_IA_down_for_me) {
+            if (!isNonTam2PieceNonIAOwner(maybe_taken)) {
+                throw new Error("tried to take either an ally or tam2");
+            }
+            addToHop1Zuo1OfIAOwner(game_state, maybe_taken);
+        }
+        else {
+            if (!isNonTam2PieceIAOwner(maybe_taken)) {
+                throw new Error("tried to take either an ally or tam2");
+            }
+            addToHop1Zuo1OfNonIAOwner(game_state, maybe_taken);
+        }
+    }
+}
 function analyzeMessage(message, room_info) {
     const onLeft = (errors) => ({
         legal: false,
         whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
     });
     return pipeable_1.pipe(Verifier.decode(message), Either_1.fold(onLeft, function (msg) {
+        const game_state = room_to_gamestate.get(room_info.room_id);
         if (msg.type === 'InfAfterStep') { /* InfAfterStep */
             return analyzeInfAfterStep(msg, room_info);
         }
@@ -251,51 +329,72 @@ function analyzeMessage(message, room_info) {
         }
         else if (msg.type === 'NonTamMove') {
             if (msg.data.type === 'FromHand') {
-                // never fails
-                return {
-                    legal: true,
-                    dat: {
-                        waterEntryHappened: false
+                if (room_info.is_IA_down_for_me) {
+                    const removed = removeFromHop1Zuo1OfIAOwner(game_state, msg.data.color, msg.data.prof);
+                    const maybe_taken = setPiece(game_state, msg.data.dest, removed);
+                    if (maybe_taken != null) {
+                        throw new Error("should not happen: already occupied and cannot be placed from hop1 zuo1");
                     }
-                };
-            }
-            if (isWater(msg.data.src)) {
-                // never fails
-                return {
-                    legal: true,
-                    dat: {
-                        waterEntryHappened: false
-                    }
-                };
-            }
-            const game_state = room_to_gamestate.get(room_info.room_id);
-            const piece = getPiece(game_state, msg.data.src);
-            if (piece !== "Tam2" && piece.prof === Profession.Nuak1) {
-                // never fails
-                return {
-                    legal: true,
-                    dat: {
-                        waterEntryHappened: false
-                    }
-                };
-            }
-            return {
-                legal: true,
-                dat: isWater(msg.data.dest) ? {
-                    waterEntryHappened: true,
-                    ciurl: [
-                        Math.random() < 0.5,
-                        Math.random() < 0.5,
-                        Math.random() < 0.5,
-                        Math.random() < 0.5,
-                        Math.random() < 0.5
-                    ]
-                } : {
-                    waterEntryHappened: false
                 }
-            };
+                else {
+                    const removed = removeFromHop1Zuo1OfNonIAOwner(game_state, msg.data.color, msg.data.prof);
+                    const maybe_taken = setPiece(game_state, msg.data.dest, removed);
+                    if (maybe_taken != null) {
+                        throw new Error("should not happen: already occupied and cannot be placed from hop1 zuo1");
+                    }
+                }
+                // never fails
+                return {
+                    legal: true,
+                    dat: {
+                        waterEntryHappened: false
+                    }
+                };
+            }
+            const piece = getPiece(game_state, msg.data.src);
+            if (isWater(msg.data.src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
+                movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+                // never fails
+                return {
+                    legal: true,
+                    dat: {
+                        waterEntryHappened: false
+                    }
+                };
+            }
+            if (isWater(msg.data.dest)) {
+                const ciurl = [
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5,
+                    Math.random() < 0.5
+                ];
+                if (ciurl.filter((a) => a).length >= 3) {
+                    movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+                }
+                return {
+                    legal: true,
+                    dat: {
+                        waterEntryHappened: true,
+                        ciurl
+                    }
+                };
+            }
+            else {
+                movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+                return {
+                    legal: true,
+                    dat: {
+                        waterEntryHappened: false
+                    }
+                };
+            }
         }
         else if (msg.type === 'TamMove') {
+            setPiece(game_state, msg.src, null);
+            setPiece(game_state, msg.secondDest, "Tam2");
+            // tam2 can't take
             // Tam2 never fails water entry
             return {
                 legal: true,
@@ -366,7 +465,6 @@ function main(req, res) {
         res.send('null');
         return;
     }
-    const token = token_;
     console.log("from", req.headers.authorization);
     let message = req.body.message;
     if (typeof message !== "object") {
