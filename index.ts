@@ -237,27 +237,56 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
     };
   }
 
-  // FIXME: should not fail if Nuak1, Vessel, 船, felkana
-  // FIXME: should not fail if the starting point is also on water
+  const game_state = room_to_gamestate.get(room_info.room_id)!;
+  const {src, step} = game_state.waiting_for_after_half_acceptance!;
+  const piece = getPiece(game_state, src)!;
 
-  return ({
-    legal: true,
-    dat: isWater(msg.dest) ? {
-      waterEntryHappened: true,
-      ciurl: [
-        Math.random() < 0.5,
-        Math.random() < 0.5,
-        Math.random() < 0.5,
-        Math.random() < 0.5,
-        Math.random() < 0.5
-      ] as Ciurl
-    } : {
+  game_state.waiting_for_after_half_acceptance = null;
+
+  if (isWater(src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
+    movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
+    return ({
+      legal: true,
+      dat: {
+          waterEntryHappened: false
+      }
+    } as Ret_AfterHalfAcceptance);
+  }
+
+  if (isWater(msg.dest)) {
+    const water_entry_ciurl: Ciurl = [
+      Math.random() < 0.5,
+      Math.random() < 0.5,
+      Math.random() < 0.5,
+      Math.random() < 0.5,
+      Math.random() < 0.5
+    ];
+
+    if (water_entry_ciurl.filter((a) => a).length >= 3) {
+      movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
+    }
+
+    return ({
+      legal: true,
+      dat: {
+        waterEntryHappened: true,
+        ciurl: water_entry_ciurl
+      }
+    } as Ret_AfterHalfAcceptance);
+  } else {
+    movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
+    return ({
+      legal: true,
+      dat: {
         waterEntryHappened: false
       }
-  } as Ret_AfterHalfAcceptance);
+    } as Ret_AfterHalfAcceptance);
+  }
 }
 
 function analyzeInfAfterStep(msg: InfAfterStep, room_info: RoomInfoWithPerspective): Ret_InfAfterStep {
+  const game_state = room_to_gamestate.get(room_info.room_id)!;
+  game_state.waiting_for_after_half_acceptance = {src: msg.src, step: msg.step};
   return ({
     legal: true,
     ciurl: [
@@ -521,6 +550,10 @@ interface GameState {
   f: Field;
   tam_itself_is_tam_hue: boolean;
   is_IA_owner_s_turn: boolean;
+  waiting_for_after_half_acceptance: null | {
+    src: AbsoluteCoord,
+    step: AbsoluteCoord
+  };
   season: Season;
   IA_owner_s_score: number;
   log2_rate: Log2_Rate;
@@ -578,7 +611,8 @@ function randomEntry(): RandomEntry {
         ],
         hop1zuo1OfIAOwner: [],
         hop1zuo1OfNonIAOwner: []
-      }
+      },
+      waiting_for_after_half_acceptance: null,
     })
     console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`);
     console.log(`${is_first_turn_newToken_turn ? newToken : token} moves first.`);
