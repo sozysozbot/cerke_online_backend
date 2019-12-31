@@ -277,7 +277,7 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
         };
       };}
     ).move.finalResult = {
-      dest: src
+      dest: msg.dest
     };
     return ({
       legal: true,
@@ -313,7 +313,7 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
         };
       };}
     ).move.finalResult = {
-      dest: src,
+      dest: water_entry_ciurl.filter((a) => a).length >= 3 ? msg.dest : src,
       water_entry_ciurl
     };
 
@@ -339,7 +339,7 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
         };
       };}
     ).move.finalResult = {
-      dest: src
+      dest: msg.dest
     };
     return ({
       legal: true,
@@ -396,6 +396,27 @@ function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
       addToHop1Zuo1OfNonIAOwner(game_state, maybe_taken)
     }
   }
+}
+
+function replyToInfPoll(room_info: RoomInfoWithPerspective): MoveToBePolled | "not yet" | "not good" {
+  const game_state = room_to_gamestate.get(room_info.room_id)!;
+  if (game_state.moves_to_be_polled.length === 0) {
+    return "not good";
+  }
+  const dat = game_state.moves_to_be_polled[game_state.moves_to_be_polled.length - 1];
+  if (room_info.is_IA_down_for_me === dat.byIAOwner) {
+    return "not good";
+  }
+
+  if (dat.move.type !== "InfAfterStep") {
+    return "not good";
+  }
+
+  if ( dat.move.finalResult == null ){
+    return "not yet";
+  }
+
+  return dat.move;
 }
 
 function replyToMainPoll(room_info: RoomInfoWithPerspective): MoveToBePolled | "not yet" {
@@ -593,6 +614,7 @@ app.use(express.static(path.join(__dirname, 'public')))
   })
   .post('/', main)
   .post('/mainpoll', mainpoll)
+  .post('/infpoll', infpoll)
   .post('/slow', (req, res) => {
     (async () => {
       let time = Math.random() * 1000 | 0;
@@ -607,6 +629,29 @@ app.use(express.static(path.join(__dirname, 'public')))
   .post('/random/poll', random_poll)
   .post('/random/cancel', random_cancel)
   .listen(PORT, () => console.log(`Listening on ${PORT}`))
+
+function infpoll(req: Request, res: Response) {
+  console.log(req.body);
+
+  const authorization = req.headers.authorization;
+  if (authorization == null) {
+    res.send('null'); // FIXME: does not conform to RFC 6750
+    return;
+  } else if (authorization.slice(0,7) !== "Bearer ") {
+    res.send('null'); // FIXME: does not conform to RFC 6750
+    return;
+  }
+
+  const token_ = authorization.slice(7);
+  const maybe_room_info = person_to_room.get(token_ as AccessToken);
+  if (typeof maybe_room_info === "undefined") {
+    res.send('null');
+    return;
+  }
+
+  console.log("from", req.headers.authorization);
+  res.json(replyToInfPoll(maybe_room_info));
+}
 
 function mainpoll(req: Request, res: Response) {
   console.log(req.body);
