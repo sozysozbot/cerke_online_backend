@@ -2,8 +2,6 @@ const uuidv4 = require('uuid/v4');
 import express from 'express';
 import { Request, Response } from 'express';
 import path from 'path';
-import Profession = type__message.Profession;
-import Color = type__message.Color;
 import AbsoluteColumn = type__message.AbsoluteColumn;
 import AbsoluteCoord = type__message.AbsoluteCoord;
 import AbsoluteRow = type__message.AbsoluteRow;
@@ -21,6 +19,24 @@ import Ret_RandomCancel = type__message.Ret_RandomCancel;
 import * as t from "io-ts";
 import { pipe } from 'fp-ts/lib/pipeable'
 import { fold } from 'fp-ts/lib/Either'
+
+enum Color {
+  Kok1, // Red, 赤
+  Huok2, // Black, 黒
+}
+
+enum Profession {
+  Nuak1, // Vessel, 船, felkana
+  Kauk2, // Pawn, 兵, elmer
+  Gua2, // Rook, 弓, gustuer
+  Kaun1, // Bishop, 車, vadyrd
+  Dau2, // Tiger, 虎, stistyst
+  Maun1, // Horse, 馬, dodor
+  Kua2, // Clerk, 筆, kua
+  Tuk2, // Shaman, 巫, terlsk
+  Uai1, // General, 将, varxle
+  Io, // King, 王, ales
+}
 
 const ColorVerifier = t.union([t.literal(0), t.literal(1)]);
 const ProfessionVerifier = t.union([
@@ -242,7 +258,7 @@ app.use(bodyParser.json());
 
 app.use(function (req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
   next();
 });
 
@@ -280,6 +296,7 @@ app.use(express.static(path.join(__dirname, 'public')))
 
 function main(req: Request, res: Response) {
   console.log(req.body);
+  console.log("from", req.headers.authorization);
   let message: unknown = req.body.message;
 
   if (typeof message !== "object") {

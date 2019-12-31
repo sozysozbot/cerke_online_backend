@@ -13,11 +13,27 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const uuidv4 = require('uuid/v4');
 const express_1 = __importDefault(require("express"));
 const path_1 = __importDefault(require("path"));
-var Profession = type__message.Profession;
-var Color = type__message.Color;
 const t = __importStar(require("io-ts"));
 const pipeable_1 = require("fp-ts/lib/pipeable");
 const Either_1 = require("fp-ts/lib/Either");
+var Color;
+(function (Color) {
+    Color[Color["Kok1"] = 0] = "Kok1";
+    Color[Color["Huok2"] = 1] = "Huok2";
+})(Color || (Color = {}));
+var Profession;
+(function (Profession) {
+    Profession[Profession["Nuak1"] = 0] = "Nuak1";
+    Profession[Profession["Kauk2"] = 1] = "Kauk2";
+    Profession[Profession["Gua2"] = 2] = "Gua2";
+    Profession[Profession["Kaun1"] = 3] = "Kaun1";
+    Profession[Profession["Dau2"] = 4] = "Dau2";
+    Profession[Profession["Maun1"] = 5] = "Maun1";
+    Profession[Profession["Kua2"] = 6] = "Kua2";
+    Profession[Profession["Tuk2"] = 7] = "Tuk2";
+    Profession[Profession["Uai1"] = 8] = "Uai1";
+    Profession[Profession["Io"] = 9] = "Io";
+})(Profession || (Profession = {}));
 const ColorVerifier = t.union([t.literal(0), t.literal(1)]);
 const ProfessionVerifier = t.union([
     t.literal(0), t.literal(1), t.literal(2),
@@ -217,7 +233,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(function (req, res, next) {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
     next();
 });
 app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
@@ -253,6 +269,7 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
     .listen(PORT, () => console.log(`Listening on ${PORT}`));
 function main(req, res) {
     console.log(req.body);
+    console.log("from", req.headers.authorization);
     let message = req.body.message;
     if (typeof message !== "object") {
         console.log("message is primitive");
