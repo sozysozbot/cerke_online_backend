@@ -10,7 +10,6 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const cool = require('cool-ascii-faces');
 const uuidv4 = require('uuid/v4');
 const express_1 = __importDefault(require("express"));
 const path_1 = __importDefault(require("path"));

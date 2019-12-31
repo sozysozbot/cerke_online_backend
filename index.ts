@@ -1,4 +1,3 @@
-const cool = require('cool-ascii-faces')
 const uuidv4 = require('uuid/v4');
 import express from 'express';
 import { Request, Response } from 'express';
