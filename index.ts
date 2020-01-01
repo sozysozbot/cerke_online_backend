@@ -778,7 +778,26 @@ function whethertymok(req: Request, res: Response) {
     return;
   }
 
-  message; // FIXME
+  const game_state = room_to_gamestate.get(maybe_room_info.room_id)!;
+  const final_obj = getLastMove(game_state);
+
+  if (typeof final_obj === "undefined") {
+    console.log("no last move");
+    res.send('null');
+    return;
+  }
+
+  if (final_obj.status == null) {
+    console.log("no hand");
+    res.send('null');
+    return;
+  }
+
+  if (message === true) { // ty mok1
+    final_obj.status = "ty mok1"
+  } else {
+    final_obj.status = "ta xot1"
+  }
 
   res.json({legal: true}); 
 }
