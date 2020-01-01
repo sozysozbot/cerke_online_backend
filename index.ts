@@ -234,7 +234,7 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
   const {src, step} = game_state.waiting_for_after_half_acceptance!;
   if (msg.dest == null) {
     (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
-      {byIAOwner: boolean, move: {
+      {byIAOwner: boolean, status: HandCompletionStatus, move: {
         type: "InfAfterStep";
         src: AbsoluteCoord;
         step: AbsoluteCoord;
@@ -244,7 +244,7 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
             dest: AbsoluteCoord;
             water_entry_ciurl?: Ciurl;
         };
-      };}
+      }}
     ).move.finalResult = {
       dest: src
     };
@@ -262,10 +262,9 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
   game_state.waiting_for_after_half_acceptance = null;
 
   if (isWater(src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
-    movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
-    
-    (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
-      {byIAOwner: boolean, move: {
+    const {hand_is_made} = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
+    const final_obj = (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
+      {byIAOwner: boolean, status: HandCompletionStatus, move: {
         type: "InfAfterStep";
         src: AbsoluteCoord;
         step: AbsoluteCoord;
@@ -276,9 +275,13 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
             water_entry_ciurl?: Ciurl;
         };
       };}
-    ).move.finalResult = {
+    );
+    
+    final_obj.move.finalResult = {
       dest: msg.dest
     };
+
+    final_obj.status = hand_is_made ? "not yet" : null;
     return ({
       legal: true,
       dat: {
@@ -296,12 +299,8 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
       Math.random() < 0.5
     ];
 
-    if (water_entry_ciurl.filter((a) => a).length >= 3) {
-      movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
-    }
-
-    (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
-      {byIAOwner: boolean, move: {
+    const obj = (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
+      {byIAOwner: boolean, status: HandCompletionStatus, move: {
         type: "InfAfterStep";
         src: AbsoluteCoord;
         step: AbsoluteCoord;
@@ -312,10 +311,24 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
             water_entry_ciurl?: Ciurl;
         };
       };}
-    ).move.finalResult = {
-      dest: water_entry_ciurl.filter((a) => a).length >= 3 ? msg.dest : src,
-      water_entry_ciurl
-    };
+    );
+
+    if (water_entry_ciurl.filter((a) => a).length >= 3) {
+      const {hand_is_made} =  movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
+      obj.move.finalResult = {
+        dest:  msg.dest,
+        water_entry_ciurl,
+      };
+      if (hand_is_made) {
+        obj.status = "not yet";
+      }
+    } else {
+      obj.move.finalResult = {
+        dest: src, // failed; returning to the original
+        water_entry_ciurl
+      };
+      obj.status = null;
+    }
 
     return ({
       legal: true,
@@ -325,9 +338,9 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
       }
     } as Ret_AfterHalfAcceptance);
   } else {
-    movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
-    (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
-      {byIAOwner: boolean, move: {
+    const {hand_is_made} =  movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
+    const obj = (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
+      {byIAOwner: boolean, status: HandCompletionStatus, move: {
         type: "InfAfterStep";
         src: AbsoluteCoord;
         step: AbsoluteCoord;
@@ -338,9 +351,15 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
             water_entry_ciurl?: Ciurl;
         };
       };}
-    ).move.finalResult = {
+    );
+
+    obj.move.finalResult = {
       dest: msg.dest
     };
+
+    if (hand_is_made) {
+      obj.status = "not yet";
+    }
     return ({
       legal: true,
       dat: {
@@ -370,7 +389,8 @@ function analyzeInfAfterStep(msg: InfAfterStep, room_info: RoomInfoWithPerspecti
       plannedDirection: msg.plannedDirection,
       stepping_ciurl,
       finalResult: null
-    }
+    },
+    status: null /* no piece has been taken yet */
   });
   return ({
     legal: true,
@@ -378,9 +398,27 @@ function analyzeInfAfterStep(msg: InfAfterStep, room_info: RoomInfoWithPerspecti
   } as Ret_InfAfterStep);
 }
 
+function calculateHandsAndScore(pieces: NonTam2Piece[]) {
+  const hop1zuo1: ObtainablePieces[] = pieces.map((p) => toObtainablePiece(p.color, p.prof));
+  const res = calculate_hands_and_score_from_pieces(hop1zuo1);
+  if (res.error === true) {
+      throw new Error(`should not happen: too many of ${res.too_many.join(",")}`);
+  }
+
+  return {hands: res.hands, score: res.score};
+}
+
+function toObtainablePiece(color: Color, prof: Profession): ObtainablePieces {
+  const a: ObtainablePieces[][] = [
+      ["赤船", "赤兵", "赤弓", "赤車", "赤虎", "赤馬", "赤筆", "赤巫", "赤将", "赤王"],
+      ["黒船", "黒兵", "黒弓", "黒車", "黒虎", "黒馬", "黒筆", "黒巫", "黒将", "黒王"],
+  ];
+  return a[color][prof];
+}
+
 function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
   game_state: GameState, src: AbsoluteCoord, dest: AbsoluteCoord,
-  is_IA_down_for_me: boolean) {
+  is_IA_down_for_me: boolean): ({hand_is_made: boolean}) {
   const piece = setPiece(game_state, src, null)!;
   const maybe_taken = setPiece(game_state, dest, piece);
   if (maybe_taken != null) {
@@ -388,14 +426,21 @@ function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
       if (!isNonTam2PieceNonIAOwner(maybe_taken)) {
         throw new Error("tried to take either an ally or tam2");
       }
+      const old_state = calculateHandsAndScore(game_state.f.hop1zuo1OfIAOwner);
       addToHop1Zuo1OfIAOwner(game_state, maybe_taken)
+      const new_state = calculateHandsAndScore(game_state.f.hop1zuo1OfIAOwner);
+      return {hand_is_made: new_state.score !== old_state.score};
     } else {
       if (!isNonTam2PieceIAOwner(maybe_taken)) {
         throw new Error("tried to take either an ally or tam2");
       }
+      const old_state = calculateHandsAndScore(game_state.f.hop1zuo1OfNonIAOwner);
       addToHop1Zuo1OfNonIAOwner(game_state, maybe_taken)
+      const new_state = calculateHandsAndScore(game_state.f.hop1zuo1OfNonIAOwner);
+      return {hand_is_made: new_state.score !== old_state.score};
     }
   }
+  return {hand_is_made: false}
 }
 
 function replyToInfPoll(room_info: RoomInfoWithPerspective): MoveToBePolled | "not yet" | "not good" {
@@ -462,7 +507,8 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
             move: {
               type: "NonTamMove",
               data: msg.data
-            }
+            },
+            status: null // never completes a new hand
           })
 
           // never fails
@@ -477,13 +523,14 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
         const piece = getPiece(game_state, msg.data.src)!;
 
         if (isWater(msg.data.src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
-          movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+          const {hand_is_made} = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
           game_state.moves_to_be_polled[game_state.season].push({
             byIAOwner: room_info.is_IA_down_for_me,
             move: {
               type: "NonTamMove",
               data: msg.data
-            }
+            },
+            status: hand_is_made ? "not yet" : null
           });
           // never fails
           return {
@@ -502,10 +549,6 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
             Math.random() < 0.5,
             Math.random() < 0.5
           ];
-
-          if (ciurl.filter((a) => a).length >= 3) {
-            movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
-          }
 
           const data: SrcDst | SrcStepDstFinite = (() => {
             if (msg.data.type === "SrcDst") {
@@ -531,10 +574,20 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
             }
           })();
 
-          game_state.moves_to_be_polled[game_state.season].push({
-            byIAOwner: room_info.is_IA_down_for_me,
-            move: {type: "NonTamMove", data}
-          })
+          if (ciurl.filter((a) => a).length >= 3) {
+            const {hand_is_made} = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+            game_state.moves_to_be_polled[game_state.season].push({
+              byIAOwner: room_info.is_IA_down_for_me,
+              move: {type: "NonTamMove", data},
+              status: hand_is_made ? "not yet" : null
+            })
+          } else {
+            game_state.moves_to_be_polled[game_state.season].push({
+              byIAOwner: room_info.is_IA_down_for_me,
+              move: {type: "NonTamMove", data},
+              status: null // never completes a move
+            })
+          }
 
           return ({
             legal: true,
@@ -544,14 +597,15 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
             } 
           } as Ret_NormalMove);
         } else {
-          movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+          const {hand_is_made} = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
           
           game_state.moves_to_be_polled[game_state.season].push({
             byIAOwner: room_info.is_IA_down_for_me,
             move: {
               type: "NonTamMove",
               data: msg.data
-            }
+            },
+            status: hand_is_made ? "not yet" : null
           })
           return ({
             legal: true,
@@ -567,7 +621,8 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
 
         game_state.moves_to_be_polled[game_state.season].push({
           byIAOwner: room_info.is_IA_down_for_me,
-          move: msg
+          move: msg,
+          status: null // never completes a hand
         });
 
         // Tam2 never fails water entry
@@ -615,6 +670,7 @@ app.use(express.static(path.join(__dirname, 'public')))
   .post('/', main)
   .post('/mainpoll', mainpoll)
   .post('/infpoll', infpoll)
+  .post('/whethertymok', whethertymok)
   .post('/slow', (req, res) => {
     (async () => {
       let time = Math.random() * 1000 | 0;
@@ -674,6 +730,45 @@ function mainpoll(req: Request, res: Response) {
 
   console.log("from", req.headers.authorization);
   res.json(replyToMainPoll(maybe_room_info));
+}
+
+function whethertymok(req: Request, res: Response) {
+  console.log(req.body);
+
+  const authorization = req.headers.authorization;
+  if (authorization == null) {
+    res.send('null'); // FIXME: does not conform to RFC 6750
+    return;
+  } else if (authorization.slice(0,7) !== "Bearer ") {
+    res.send('null'); // FIXME: does not conform to RFC 6750
+    return;
+  } 
+
+  const token_ = authorization.slice(7);
+  const maybe_room_info = person_to_room.get(token_ as AccessToken);
+  if (typeof maybe_room_info === "undefined") {
+    res.send('null');
+    return;
+  }
+  
+  console.log("from", req.headers.authorization);
+  let message: unknown = req.body.message;
+
+  if (typeof message !== "boolean") {
+    console.log("non-boolean message");
+    res.send('null');
+    return;
+  }
+
+  if (message == null) {
+    console.log("no message");
+    res.send('null');
+    return;
+  }
+
+  message; // FIXME
+
+  res.json({legal: true}); 
 }
 
 function main(req: Request, res: Response) {
@@ -775,13 +870,16 @@ interface GameState {
   season: Season;
   IA_owner_s_score: number;
   log2_rate: Log2_Rate;
-  moves_to_be_polled: Tuple4<
-    Array<{
-      move: MoveToBePolled,
-      byIAOwner: boolean
-    }>
-  >;
+  moves_to_be_polled: Tuple4< Array<MovePiece> >;
 }
+
+type HandCompletionStatus = null | "ty mok1" | "ta xot1" | "not yet"
+
+type MovePiece = {
+  move: MoveToBePolled,
+  status: HandCompletionStatus,
+  byIAOwner: boolean
+};
 
 var waiting_list = new Set<AccessToken>();
 var person_to_room = new Map<AccessToken, RoomInfoWithPerspective >();
