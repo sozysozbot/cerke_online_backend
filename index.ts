@@ -229,23 +229,40 @@ function isWater([row, col]: AbsoluteCoord): boolean {
   ;
 }
 
+function isInfAfterStep(a: {byIAOwner: boolean, status: HandCompletionStatus, move: MoveToBePolled}): a is ({byIAOwner: boolean, status: HandCompletionStatus, move: {
+  type: "InfAfterStep";
+  src: AbsoluteCoord;
+  step: AbsoluteCoord;
+  plannedDirection: AbsoluteCoord;
+  stepping_ciurl: Ciurl;
+  finalResult: null /* not yet known */| {
+      dest: AbsoluteCoord;
+      water_entry_ciurl?: Ciurl;
+  };
+};}) {
+  if (a.move.type === "NonTamMove") {
+    return false;
+  } else if (a.move.type === "TamMove") {
+    return false;
+  } else if (a.move.type === "InfAfterStep") {
+    return true;
+  } else {
+    const _should_not_reach_here: never = a.move;
+    throw new Error("should not happen");
+  }
+}
+
 function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInfoWithPerspective): Ret_AfterHalfAcceptance {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   const {src, step} = game_state.waiting_for_after_half_acceptance!;
   if (msg.dest == null) {
-    (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
-      {byIAOwner: boolean, status: HandCompletionStatus, move: {
-        type: "InfAfterStep";
-        src: AbsoluteCoord;
-        step: AbsoluteCoord;
-        plannedDirection: AbsoluteCoord;
-        stepping_ciurl: Ciurl;
-        finalResult: null /* not yet known */| {
-            dest: AbsoluteCoord;
-            water_entry_ciurl?: Ciurl;
-        };
-      }}
-    ).move.finalResult = {
+    const obj = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
+    
+    if (!isInfAfterStep(obj)) {
+      return ({legal: false, whyIllegal: "the last move was not InfAfterStep"})
+    }
+    
+    obj.move.finalResult = {
       dest: src
     };
     // hasn't actually moved, so the water entry cannot fail
@@ -263,19 +280,11 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
 
   if (isWater(src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
     const {hand_is_made} = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
-    const final_obj = (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
-      {byIAOwner: boolean, status: HandCompletionStatus, move: {
-        type: "InfAfterStep";
-        src: AbsoluteCoord;
-        step: AbsoluteCoord;
-        plannedDirection: AbsoluteCoord;
-        stepping_ciurl: Ciurl;
-        finalResult: null /* not yet known */| {
-            dest: AbsoluteCoord;
-            water_entry_ciurl?: Ciurl;
-        };
-      };}
-    );
+    const final_obj = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
+    
+    if (!isInfAfterStep(final_obj)) {
+      return ({legal: false, whyIllegal: "the last move was not InfAfterStep"})
+    }
     
     final_obj.move.finalResult = {
       dest: msg.dest
@@ -299,19 +308,11 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
       Math.random() < 0.5
     ];
 
-    const obj = (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
-      {byIAOwner: boolean, status: HandCompletionStatus, move: {
-        type: "InfAfterStep";
-        src: AbsoluteCoord;
-        step: AbsoluteCoord;
-        plannedDirection: AbsoluteCoord;
-        stepping_ciurl: Ciurl;
-        finalResult: null /* not yet known */| {
-            dest: AbsoluteCoord;
-            water_entry_ciurl?: Ciurl;
-        };
-      };}
-    );
+    const obj = (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1]);
+    
+    if (!isInfAfterStep(obj)) {
+      return ({legal: false, whyIllegal: "the last move was not InfAfterStep"})
+    }
 
     if (water_entry_ciurl.filter((a) => a).length >= 3) {
       const {hand_is_made} =  movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
@@ -339,20 +340,12 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
     } as Ret_AfterHalfAcceptance);
   } else {
     const {hand_is_made} =  movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
-    const obj = (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1] as 
-      {byIAOwner: boolean, status: HandCompletionStatus, move: {
-        type: "InfAfterStep";
-        src: AbsoluteCoord;
-        step: AbsoluteCoord;
-        plannedDirection: AbsoluteCoord;
-        stepping_ciurl: Ciurl;
-        finalResult: null /* not yet known */| {
-            dest: AbsoluteCoord;
-            water_entry_ciurl?: Ciurl;
-        };
-      };}
-    );
-
+    const obj = (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1]);
+    
+    if (!isInfAfterStep(obj)) {
+      return ({legal: false, whyIllegal: "the last move was not InfAfterStep"})
+    }
+  
     obj.move.finalResult = {
       dest: msg.dest
     };

@@ -256,11 +256,30 @@ function isWater([row, col]) {
         || (row === "Y" && col === "Z")
         || (row === "AI" && col === "Z");
 }
+function isInfAfterStep(a) {
+    if (a.move.type === "NonTamMove") {
+        return false;
+    }
+    else if (a.move.type === "TamMove") {
+        return false;
+    }
+    else if (a.move.type === "InfAfterStep") {
+        return true;
+    }
+    else {
+        const _should_not_reach_here = a.move;
+        throw new Error("should not happen");
+    }
+}
 function analyzeAfterHalfAcceptance(msg, room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
     const { src, step } = game_state.waiting_for_after_half_acceptance;
     if (msg.dest == null) {
-        game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1].move.finalResult = {
+        const obj = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
+        if (!isInfAfterStep(obj)) {
+            return ({ legal: false, whyIllegal: "the last move was not InfAfterStep" });
+        }
+        obj.move.finalResult = {
             dest: src
         };
         // hasn't actually moved, so the water entry cannot fail
@@ -276,6 +295,9 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
     if (isWater(src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
         const { hand_is_made } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
         const final_obj = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
+        if (!isInfAfterStep(final_obj)) {
+            return ({ legal: false, whyIllegal: "the last move was not InfAfterStep" });
+        }
         final_obj.move.finalResult = {
             dest: msg.dest
         };
@@ -295,7 +317,10 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
             Math.random() < 0.5,
             Math.random() < 0.5
         ];
-        const obj = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
+        const obj = (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1]);
+        if (!isInfAfterStep(obj)) {
+            return ({ legal: false, whyIllegal: "the last move was not InfAfterStep" });
+        }
         if (water_entry_ciurl.filter((a) => a).length >= 3) {
             const { hand_is_made } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
             obj.move.finalResult = {
@@ -323,7 +348,10 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
     }
     else {
         const { hand_is_made } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
-        const obj = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
+        const obj = (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1]);
+        if (!isInfAfterStep(obj)) {
+            return ({ legal: false, whyIllegal: "the last move was not InfAfterStep" });
+        }
         obj.move.finalResult = {
             dest: msg.dest
         };
