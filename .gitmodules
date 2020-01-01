@@ -1,3 +1,6 @@
 [submodule "cerke_online_api"]
 	path = cerke_online_api
 	url = https://github.com/sozysozbot/cerke_online_api.git
+[submodule "cerke_calculate_hands_core"]
+	path = cerke_calculate_hands_core
+	url = https://github.com/jurliyuuri/cerke_calculate_hands_core.git

@@ -11,6 +11,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const uuidv4 = require('uuid/v4');
+const calculate_hands = require('./cerke_calculate_hands_core/calculate_hand.js');
 const express_1 = __importDefault(require("express"));
 const path_1 = __importDefault(require("path"));
 const t = __importStar(require("io-ts"));
@@ -256,11 +257,40 @@ function isWater([row, col]) {
         || (row === "Y" && col === "Z")
         || (row === "AI" && col === "Z");
 }
+function isInfAfterStep(a) {
+    if (a.move.type === "NonTamMove") {
+        return false;
+    }
+    else if (a.move.type === "TamMove") {
+        return false;
+    }
+    else if (a.move.type === "InfAfterStep") {
+        return true;
+    }
+    else {
+        const _should_not_reach_here = a.move;
+        throw new Error("should not happen");
+    }
+}
+function getLastMove(game_state) {
+    const arr = game_state.moves_to_be_polled[game_state.season];
+    if (arr.length === 0) {
+        return undefined;
+    }
+    return arr[arr.length - 1];
+}
 function analyzeAfterHalfAcceptance(msg, room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
     const { src, step } = game_state.waiting_for_after_half_acceptance;
     if (msg.dest == null) {
-        game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1].move.finalResult = {
+        const obj = getLastMove(game_state);
+        if (typeof obj === "undefined") {
+            return ({ legal: false, whyIllegal: "there was no last move" });
+        }
+        if (!isInfAfterStep(obj)) {
+            return ({ legal: false, whyIllegal: "the last move was not InfAfterStep" });
+        }
+        obj.move.finalResult = {
             dest: src
         };
         // hasn't actually moved, so the water entry cannot fail
@@ -274,16 +304,22 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
     const piece = getPiece(game_state, src);
     game_state.waiting_for_after_half_acceptance = null;
     if (isWater(src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
-        movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
-        game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1].move.finalResult = {
+        const { hand_is_made } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
+        const final_obj = getLastMove(game_state);
+        if (typeof final_obj === "undefined" || !isInfAfterStep(final_obj)) {
+            return ({ legal: false, whyIllegal: "the last move was not InfAfterStep" });
+        }
+        final_obj.move.finalResult = {
             dest: msg.dest
         };
-        return {
+        final_obj.status = hand_is_made ? "not yet" : null;
+        const ans = {
             legal: true,
             dat: {
                 waterEntryHappened: false
             }
         };
+        return ans;
     }
     if (isWater(msg.dest)) {
         const water_entry_ciurl = [
@@ -293,32 +329,55 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
             Math.random() < 0.5,
             Math.random() < 0.5
         ];
-        if (water_entry_ciurl.filter((a) => a).length >= 3) {
-            movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
+        const obj = getLastMove(game_state);
+        if (typeof obj === "undefined" || !isInfAfterStep(obj)) {
+            return ({ legal: false, whyIllegal: "the last move was not InfAfterStep" });
         }
-        game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1].move.finalResult = {
-            dest: water_entry_ciurl.filter((a) => a).length >= 3 ? msg.dest : src,
-            water_entry_ciurl
-        };
-        return {
+        if (water_entry_ciurl.filter((a) => a).length >= 3) {
+            const { hand_is_made } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
+            obj.move.finalResult = {
+                dest: msg.dest,
+                water_entry_ciurl,
+            };
+            if (hand_is_made) {
+                obj.status = "not yet";
+            }
+        }
+        else {
+            obj.move.finalResult = {
+                dest: src,
+                water_entry_ciurl
+            };
+            obj.status = null;
+        }
+        const ans = {
             legal: true,
             dat: {
                 waterEntryHappened: true,
                 ciurl: water_entry_ciurl
             }
         };
+        return ans;
     }
     else {
-        movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
-        game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1].move.finalResult = {
+        const { hand_is_made } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
+        const obj = getLastMove(game_state);
+        if (typeof obj === "undefined" || !isInfAfterStep(obj)) {
+            return ({ legal: false, whyIllegal: "the last move was not InfAfterStep" });
+        }
+        obj.move.finalResult = {
             dest: msg.dest
         };
-        return {
+        if (hand_is_made) {
+            obj.status = "not yet";
+        }
+        const ans = {
             legal: true,
             dat: {
                 waterEntryHappened: false
             }
         };
+        return ans;
     }
 }
 function analyzeInfAfterStep(msg, room_info) {
@@ -340,12 +399,29 @@ function analyzeInfAfterStep(msg, room_info) {
             plannedDirection: msg.plannedDirection,
             stepping_ciurl,
             finalResult: null
-        }
+        },
+        status: null /* no piece has been taken yet */
     });
-    return {
+    const ans = {
         legal: true,
         ciurl: stepping_ciurl
     };
+    return ans;
+}
+function calculateHandsAndScore(pieces) {
+    const hop1zuo1 = pieces.map((p) => toObtainablePiece(p.color, p.prof));
+    const res = calculate_hands.calculate_hands_and_score_from_pieces(hop1zuo1);
+    if (res.error === true) {
+        throw new Error(`should not happen: too many of ${res.too_many.join(",")}`);
+    }
+    return { hands: res.hands, score: res.score };
+}
+function toObtainablePiece(color, prof) {
+    const a = [
+        ["赤船", "赤兵", "赤弓", "赤車", "赤虎", "赤馬", "赤筆", "赤巫", "赤将", "赤王"],
+        ["黒船", "黒兵", "黒弓", "黒車", "黒虎", "黒馬", "黒筆", "黒巫", "黒将", "黒王"],
+    ];
+    return a[color][prof];
 }
 function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, dest, is_IA_down_for_me) {
     const piece = setPiece(game_state, src, null);
@@ -355,22 +431,29 @@ function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src,
             if (!isNonTam2PieceNonIAOwner(maybe_taken)) {
                 throw new Error("tried to take either an ally or tam2");
             }
+            const old_state = calculateHandsAndScore(game_state.f.hop1zuo1OfIAOwner);
             addToHop1Zuo1OfIAOwner(game_state, maybe_taken);
+            const new_state = calculateHandsAndScore(game_state.f.hop1zuo1OfIAOwner);
+            return { hand_is_made: new_state.score !== old_state.score };
         }
         else {
             if (!isNonTam2PieceIAOwner(maybe_taken)) {
                 throw new Error("tried to take either an ally or tam2");
             }
+            const old_state = calculateHandsAndScore(game_state.f.hop1zuo1OfNonIAOwner);
             addToHop1Zuo1OfNonIAOwner(game_state, maybe_taken);
+            const new_state = calculateHandsAndScore(game_state.f.hop1zuo1OfNonIAOwner);
+            return { hand_is_made: new_state.score !== old_state.score };
         }
     }
+    return { hand_is_made: false };
 }
 function replyToInfPoll(room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
-    if (game_state.moves_to_be_polled[game_state.season].length === 0) {
+    const dat = getLastMove(game_state);
+    if (typeof dat === "undefined") {
         return "not good";
     }
-    const dat = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
     if (room_info.is_IA_down_for_me === dat.byIAOwner) {
         return "not good";
     }
@@ -384,10 +467,10 @@ function replyToInfPoll(room_info) {
 }
 function replyToMainPoll(room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
-    if (game_state.moves_to_be_polled[game_state.season].length === 0) {
+    const dat = getLastMove(game_state);
+    if (typeof dat === "undefined") {
         return "not yet";
     }
-    const dat = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
     if (room_info.is_IA_down_for_me === dat.byIAOwner) {
         return "not yet";
     }
@@ -427,7 +510,8 @@ function analyzeMessage(message, room_info) {
                     move: {
                         type: "NonTamMove",
                         data: msg.data
-                    }
+                    },
+                    status: null // never completes a new hand
                 });
                 // never fails
                 return {
@@ -439,13 +523,14 @@ function analyzeMessage(message, room_info) {
             }
             const piece = getPiece(game_state, msg.data.src);
             if (isWater(msg.data.src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
-                movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+                const { hand_is_made } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
                 game_state.moves_to_be_polled[game_state.season].push({
                     byIAOwner: room_info.is_IA_down_for_me,
                     move: {
                         type: "NonTamMove",
                         data: msg.data
-                    }
+                    },
+                    status: hand_is_made ? "not yet" : null
                 });
                 // never fails
                 return {
@@ -463,9 +548,6 @@ function analyzeMessage(message, room_info) {
                     Math.random() < 0.5,
                     Math.random() < 0.5
                 ];
-                if (ciurl.filter((a) => a).length >= 3) {
-                    movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
-                }
                 const data = (() => {
                     if (msg.data.type === "SrcDst") {
                         const ans = {
@@ -491,33 +573,47 @@ function analyzeMessage(message, room_info) {
                         throw new Error("should not happen");
                     }
                 })();
-                game_state.moves_to_be_polled[game_state.season].push({
-                    byIAOwner: room_info.is_IA_down_for_me,
-                    move: { type: "NonTamMove", data }
-                });
-                return {
+                if (ciurl.filter((a) => a).length >= 3) {
+                    const { hand_is_made } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+                    game_state.moves_to_be_polled[game_state.season].push({
+                        byIAOwner: room_info.is_IA_down_for_me,
+                        move: { type: "NonTamMove", data },
+                        status: hand_is_made ? "not yet" : null
+                    });
+                }
+                else {
+                    game_state.moves_to_be_polled[game_state.season].push({
+                        byIAOwner: room_info.is_IA_down_for_me,
+                        move: { type: "NonTamMove", data },
+                        status: null // never completes a move
+                    });
+                }
+                const ans = {
                     legal: true,
                     dat: {
                         waterEntryHappened: true,
                         ciurl
                     }
                 };
+                return ans;
             }
             else {
-                movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
+                const { hand_is_made } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
                 game_state.moves_to_be_polled[game_state.season].push({
                     byIAOwner: room_info.is_IA_down_for_me,
                     move: {
                         type: "NonTamMove",
                         data: msg.data
-                    }
+                    },
+                    status: hand_is_made ? "not yet" : null
                 });
-                return {
+                const ans = {
                     legal: true,
                     dat: {
                         waterEntryHappened: false
                     }
                 };
+                return ans;
             }
         }
         else if (msg.type === 'TamMove') {
@@ -526,15 +622,17 @@ function analyzeMessage(message, room_info) {
             // tam2 can't take
             game_state.moves_to_be_polled[game_state.season].push({
                 byIAOwner: room_info.is_IA_down_for_me,
-                move: msg
+                move: msg,
+                status: null // never completes a hand
             });
             // Tam2 never fails water entry
-            return {
+            const ans = {
                 legal: true,
                 dat: {
                     waterEntryHappened: false
                 }
             };
+            return ans;
         }
         else {
             let _should_not_reach_here = msg;
@@ -570,6 +668,7 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
     .post('/', main)
     .post('/mainpoll', mainpoll)
     .post('/infpoll', infpoll)
+    .post('/whethertymok', whethertymok)
     .post('/slow', (req, res) => {
     (async () => {
         let time = Math.random() * 1000 | 0;
@@ -622,6 +721,55 @@ function mainpoll(req, res) {
     }
     console.log("from", req.headers.authorization);
     res.json(replyToMainPoll(maybe_room_info));
+}
+function whethertymok(req, res) {
+    console.log(req.body);
+    const authorization = req.headers.authorization;
+    if (authorization == null) {
+        res.send('null'); // FIXME: does not conform to RFC 6750
+        return;
+    }
+    else if (authorization.slice(0, 7) !== "Bearer ") {
+        res.send('null'); // FIXME: does not conform to RFC 6750
+        return;
+    }
+    const token_ = authorization.slice(7);
+    const maybe_room_info = person_to_room.get(token_);
+    if (typeof maybe_room_info === "undefined") {
+        res.send('null');
+        return;
+    }
+    console.log("from", req.headers.authorization);
+    let message = req.body.message;
+    if (typeof message !== "boolean") {
+        console.log("non-boolean message");
+        res.send('null');
+        return;
+    }
+    if (message == null) {
+        console.log("no message");
+        res.send('null');
+        return;
+    }
+    const game_state = room_to_gamestate.get(maybe_room_info.room_id);
+    const final_obj = getLastMove(game_state);
+    if (typeof final_obj === "undefined") {
+        console.log("no last move");
+        res.send('null');
+        return;
+    }
+    if (final_obj.status == null) {
+        console.log("no hand");
+        res.send('null');
+        return;
+    }
+    if (message === true) { // ty mok1
+        final_obj.status = "ty mok1";
+    }
+    else {
+        final_obj.status = "ta xot1";
+    }
+    res.json({ legal: true });
 }
 function main(req, res) {
     console.log(req.body);
