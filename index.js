@@ -302,12 +302,13 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
             dest: msg.dest
         };
         final_obj.status = hand_is_made ? "not yet" : null;
-        return {
+        const ans = {
             legal: true,
             dat: {
                 waterEntryHappened: false
             }
         };
+        return ans;
     }
     if (isWater(msg.dest)) {
         const water_entry_ciurl = [
@@ -338,13 +339,14 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
             };
             obj.status = null;
         }
-        return {
+        const ans = {
             legal: true,
             dat: {
                 waterEntryHappened: true,
                 ciurl: water_entry_ciurl
             }
         };
+        return ans;
     }
     else {
         const { hand_is_made } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
@@ -358,12 +360,13 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
         if (hand_is_made) {
             obj.status = "not yet";
         }
-        return {
+        const ans = {
             legal: true,
             dat: {
                 waterEntryHappened: false
             }
         };
+        return ans;
     }
 }
 function analyzeInfAfterStep(msg, room_info) {
@@ -388,10 +391,11 @@ function analyzeInfAfterStep(msg, room_info) {
         },
         status: null /* no piece has been taken yet */
     });
-    return {
+    const ans = {
         legal: true,
         ciurl: stepping_ciurl
     };
+    return ans;
 }
 function calculateHandsAndScore(pieces) {
     const hop1zuo1 = pieces.map((p) => toObtainablePiece(p.color, p.prof));
@@ -573,13 +577,14 @@ function analyzeMessage(message, room_info) {
                         status: null // never completes a move
                     });
                 }
-                return {
+                const ans = {
                     legal: true,
                     dat: {
                         waterEntryHappened: true,
                         ciurl
                     }
                 };
+                return ans;
             }
             else {
                 const { hand_is_made } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
@@ -591,12 +596,13 @@ function analyzeMessage(message, room_info) {
                     },
                     status: hand_is_made ? "not yet" : null
                 });
-                return {
+                const ans = {
                     legal: true,
                     dat: {
                         waterEntryHappened: false
                     }
                 };
+                return ans;
             }
         }
         else if (msg.type === 'TamMove') {
@@ -609,12 +615,13 @@ function analyzeMessage(message, room_info) {
                 status: null // never completes a hand
             });
             // Tam2 never fails water entry
-            return {
+            const ans = {
                 legal: true,
                 dat: {
                     waterEntryHappened: false
                 }
             };
+            return ans;
         }
         else {
             let _should_not_reach_here = msg;

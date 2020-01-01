@@ -291,12 +291,14 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
     };
 
     final_obj.status = hand_is_made ? "not yet" : null;
-    return ({
+
+    const ans: Ret_AfterHalfAcceptance = {
       legal: true,
       dat: {
           waterEntryHappened: false
       }
-    } as Ret_AfterHalfAcceptance);
+    };
+    return ans;
   }
 
   if (isWater(msg.dest)) {
@@ -331,13 +333,14 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
       obj.status = null;
     }
 
-    return ({
+    const ans: Ret_AfterHalfAcceptance = {
       legal: true,
       dat: {
         waterEntryHappened: true,
         ciurl: water_entry_ciurl
       }
-    } as Ret_AfterHalfAcceptance);
+    };
+    return ans;
   } else {
     const {hand_is_made} =  movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
     const obj = (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1]);
@@ -353,12 +356,14 @@ function analyzeAfterHalfAcceptance(msg: AfterHalfAcceptance, room_info: RoomInf
     if (hand_is_made) {
       obj.status = "not yet";
     }
-    return ({
+
+    const ans: Ret_AfterHalfAcceptance = {
       legal: true,
       dat: {
         waterEntryHappened: false
       }
-    } as Ret_AfterHalfAcceptance);
+    };
+    return ans;
   }
 }
 
@@ -385,10 +390,11 @@ function analyzeInfAfterStep(msg: InfAfterStep, room_info: RoomInfoWithPerspecti
     },
     status: null /* no piece has been taken yet */
   });
-  return ({
+  const ans: Ret_InfAfterStep = {
     legal: true,
     ciurl: stepping_ciurl
-  } as Ret_InfAfterStep);
+  };
+  return ans;
 }
 
 function calculateHandsAndScore(pieces: NonTam2Piece[]) {
@@ -582,13 +588,14 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
             })
           }
 
-          return ({
+          const ans: Ret_NormalMove = {
             legal: true,
             dat: {
               waterEntryHappened: true,
               ciurl
             } 
-          } as Ret_NormalMove);
+          };
+          return ans;
         } else {
           const {hand_is_made} = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, msg.data.src, msg.data.dest, room_info.is_IA_down_for_me);
           
@@ -600,12 +607,14 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
             },
             status: hand_is_made ? "not yet" : null
           })
-          return ({
+
+          const ans: Ret_NormalMove = {
             legal: true,
             dat: {
                 waterEntryHappened: false
               }
-          } as Ret_NormalMove);
+          };
+          return ans;
         }
       } else if (msg.type === 'TamMove') {
         setPiece(game_state, msg.src, null);
@@ -619,12 +628,13 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
         });
 
         // Tam2 never fails water entry
-        return ({
+        const ans: Ret_NormalMove = {
           legal: true,
           dat: {
             waterEntryHappened: false
           }
-        } as Ret_NormalMove);
+        };
+        return ans;
       } else {
         let _should_not_reach_here: never = msg;
         throw new Error("should not reach here");
