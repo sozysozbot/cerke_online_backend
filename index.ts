@@ -762,6 +762,8 @@ export type Tuple9<T> = [T, T, T, T, T, T, T, T, T];
 export type Board = Tuple9<Row>;
 export type Row = Tuple9<Piece | null>;
 
+type Tuple4<T> = [T, T, T, T]
+
 interface GameState {
   f: Field;
   tam_itself_is_tam_hue: boolean;
@@ -773,19 +775,12 @@ interface GameState {
   season: Season;
   IA_owner_s_score: number;
   log2_rate: Log2_Rate;
-  moves_to_be_polled: [Array<{
-    move: MoveToBePolled,
-    byIAOwner: boolean
-  }>, Array<{
-    move: MoveToBePolled,
-    byIAOwner: boolean
-  }>, Array<{
-    move: MoveToBePolled,
-    byIAOwner: boolean
-  }>, Array<{
-    move: MoveToBePolled,
-    byIAOwner: boolean
-  }>]
+  moves_to_be_polled: Tuple4<
+    Array<{
+      move: MoveToBePolled,
+      byIAOwner: boolean
+    }>
+  >;
 }
 
 var waiting_list = new Set<AccessToken>();
