@@ -271,11 +271,21 @@ function isInfAfterStep(a) {
         throw new Error("should not happen");
     }
 }
+function getLastMove(game_state) {
+    const arr = game_state.moves_to_be_polled[game_state.season];
+    if (arr.length === 0) {
+        return undefined;
+    }
+    return arr[arr.length - 1];
+}
 function analyzeAfterHalfAcceptance(msg, room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
     const { src, step } = game_state.waiting_for_after_half_acceptance;
     if (msg.dest == null) {
-        const obj = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
+        const obj = getLastMove(game_state);
+        if (typeof obj === "undefined") {
+            return ({ legal: false, whyIllegal: "there was no last move" });
+        }
         if (!isInfAfterStep(obj)) {
             return ({ legal: false, whyIllegal: "the last move was not InfAfterStep" });
         }
@@ -294,8 +304,8 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
     game_state.waiting_for_after_half_acceptance = null;
     if (isWater(src) || (piece !== "Tam2" && piece.prof === Profession.Nuak1)) {
         const { hand_is_made } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
-        const final_obj = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
-        if (!isInfAfterStep(final_obj)) {
+        const final_obj = getLastMove(game_state);
+        if (typeof final_obj === "undefined" || !isInfAfterStep(final_obj)) {
             return ({ legal: false, whyIllegal: "the last move was not InfAfterStep" });
         }
         final_obj.move.finalResult = {
@@ -318,8 +328,8 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
             Math.random() < 0.5,
             Math.random() < 0.5
         ];
-        const obj = (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1]);
-        if (!isInfAfterStep(obj)) {
+        const obj = getLastMove(game_state);
+        if (typeof obj === "undefined" || !isInfAfterStep(obj)) {
             return ({ legal: false, whyIllegal: "the last move was not InfAfterStep" });
         }
         if (water_entry_ciurl.filter((a) => a).length >= 3) {
@@ -350,8 +360,8 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
     }
     else {
         const { hand_is_made } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src, msg.dest, room_info.is_IA_down_for_me);
-        const obj = (game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1]);
-        if (!isInfAfterStep(obj)) {
+        const obj = getLastMove(game_state);
+        if (typeof obj === "undefined" || !isInfAfterStep(obj)) {
             return ({ legal: false, whyIllegal: "the last move was not InfAfterStep" });
         }
         obj.move.finalResult = {
@@ -439,10 +449,10 @@ function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src,
 }
 function replyToInfPoll(room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
-    if (game_state.moves_to_be_polled[game_state.season].length === 0) {
+    const dat = getLastMove(game_state);
+    if (typeof dat === "undefined") {
         return "not good";
     }
-    const dat = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
     if (room_info.is_IA_down_for_me === dat.byIAOwner) {
         return "not good";
     }
@@ -456,10 +466,10 @@ function replyToInfPoll(room_info) {
 }
 function replyToMainPoll(room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
-    if (game_state.moves_to_be_polled[game_state.season].length === 0) {
+    const dat = getLastMove(game_state);
+    if (typeof dat === "undefined") {
         return "not yet";
     }
-    const dat = game_state.moves_to_be_polled[game_state.season][game_state.moves_to_be_polled[game_state.season].length - 1];
     if (room_info.is_IA_down_for_me === dat.byIAOwner) {
         return "not yet";
     }
