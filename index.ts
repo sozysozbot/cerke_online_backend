@@ -700,7 +700,8 @@ app.use(express.static(path.join(__dirname, 'public')))
   .listen(PORT, () => console.log(`Listening on ${PORT}`))
 
 function infpoll(req: Request, res: Response) {
-  console.log(req.body);
+  console.log("\n sent to '/infpoll'");
+  console.log(JSON.stringify(req.body, null, "\t"));
 
   const authorization = req.headers.authorization;
   if (authorization == null) {
@@ -723,7 +724,8 @@ function infpoll(req: Request, res: Response) {
 }
 
 function mainpoll(req: Request, res: Response) {
-  console.log(req.body);
+  console.log("\n sent to '/mainpoll'");
+  console.log(JSON.stringify(req.body, null, "\t"));
 
   const authorization = req.headers.authorization;
   if (authorization == null) {
@@ -746,7 +748,8 @@ function mainpoll(req: Request, res: Response) {
 }
 
 function whethertymok(req: Request, res: Response) {
-  console.log(req.body);
+  console.log("\n sent to '/whethertymok'");
+  console.log(JSON.stringify(req.body, null, "\t"));
 
   const authorization = req.headers.authorization;
   if (authorization == null) {
@@ -804,7 +807,8 @@ function whethertymok(req: Request, res: Response) {
 }
 
 function main(req: Request, res: Response) {
-  console.log(req.body);
+  console.log("\n sent to '/' or '/slow'");
+  console.log(JSON.stringify(req.body, null, "\t"));
 
   const authorization = req.headers.authorization;
   if (authorization == null) {

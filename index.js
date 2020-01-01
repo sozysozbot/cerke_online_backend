@@ -683,7 +683,8 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
     .post('/random/cancel', random_cancel)
     .listen(PORT, () => console.log(`Listening on ${PORT}`));
 function infpoll(req, res) {
-    console.log(req.body);
+    console.log("\n sent to '/infpoll'");
+    console.log(JSON.stringify(req.body, null, "\t"));
     const authorization = req.headers.authorization;
     if (authorization == null) {
         res.send('null'); // FIXME: does not conform to RFC 6750
@@ -703,7 +704,8 @@ function infpoll(req, res) {
     res.json(replyToInfPoll(maybe_room_info));
 }
 function mainpoll(req, res) {
-    console.log(req.body);
+    console.log("\n sent to '/mainpoll'");
+    console.log(JSON.stringify(req.body, null, "\t"));
     const authorization = req.headers.authorization;
     if (authorization == null) {
         res.send('null'); // FIXME: does not conform to RFC 6750
@@ -723,7 +725,8 @@ function mainpoll(req, res) {
     res.json(replyToMainPoll(maybe_room_info));
 }
 function whethertymok(req, res) {
-    console.log(req.body);
+    console.log("\n sent to '/whethertymok'");
+    console.log(JSON.stringify(req.body, null, "\t"));
     const authorization = req.headers.authorization;
     if (authorization == null) {
         res.send('null'); // FIXME: does not conform to RFC 6750
@@ -772,7 +775,8 @@ function whethertymok(req, res) {
     res.json({ legal: true });
 }
 function main(req, res) {
-    console.log(req.body);
+    console.log("\n sent to '/' or '/slow'");
+    console.log(JSON.stringify(req.body, null, "\t"));
     const authorization = req.headers.authorization;
     if (authorization == null) {
         res.send('null'); // FIXME: does not conform to RFC 6750
