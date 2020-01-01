@@ -11,6 +11,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const uuidv4 = require('uuid/v4');
+const calculate_hands = require('./cerke_calculate_hands_core/calculate_hand.js');
 const express_1 = __importDefault(require("express"));
 const path_1 = __importDefault(require("path"));
 const t = __importStar(require("io-ts"));
@@ -409,7 +410,7 @@ function analyzeInfAfterStep(msg, room_info) {
 }
 function calculateHandsAndScore(pieces) {
     const hop1zuo1 = pieces.map((p) => toObtainablePiece(p.color, p.prof));
-    const res = calculate_hands_and_score_from_pieces(hop1zuo1);
+    const res = calculate_hands.calculate_hands_and_score_from_pieces(hop1zuo1);
     if (res.error === true) {
         throw new Error(`should not happen: too many of ${res.too_many.join(",")}`);
     }

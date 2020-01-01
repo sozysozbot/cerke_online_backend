@@ -1,4 +1,5 @@
 const uuidv4 = require('uuid/v4');
+const calculate_hands = require('./cerke_calculate_hands_core/calculate_hand.js')
 import express from 'express';
 import { Request, Response } from 'express';
 import path from 'path';
@@ -406,7 +407,7 @@ function analyzeInfAfterStep(msg: InfAfterStep, room_info: RoomInfoWithPerspecti
 
 function calculateHandsAndScore(pieces: NonTam2Piece[]) {
   const hop1zuo1: ObtainablePieces[] = pieces.map((p) => toObtainablePiece(p.color, p.prof));
-  const res = calculate_hands_and_score_from_pieces(hop1zuo1);
+  const res = calculate_hands.calculate_hands_and_score_from_pieces(hop1zuo1);
   if (res.error === true) {
       throw new Error(`should not happen: too many of ${res.too_many.join(",")}`);
   }
