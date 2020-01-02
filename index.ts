@@ -450,6 +450,21 @@ function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
   return {hand_is_made: false}
 }
 
+function replyToWhetherTyMokPoll(room_info: RoomInfoWithPerspective): "ty mok1" | "ta xot1" | "not yet" | null {
+  const game_state = room_to_gamestate.get(room_info.room_id)!;
+  
+  const dat = getLastMove(game_state);
+  if (typeof dat === "undefined") {
+    return null;
+  }
+
+  if (dat.status == null) {
+    return null;
+  }
+
+  return dat.status;
+}
+
 function replyToInfPoll(room_info: RoomInfoWithPerspective): MoveToBePolled | "not yet" | "not good" {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   
@@ -684,6 +699,7 @@ app.use(express.static(path.join(__dirname, 'public')))
   .post('/mainpoll', mainpoll)
   .post('/infpoll', infpoll)
   .post('/whethertymok', whethertymok)
+  .post('/whethertymokpoll', whethertymokpoll)
   .post('/slow', (req, res) => {
     (async () => {
       let time = Math.random() * 1000 | 0;
@@ -698,6 +714,30 @@ app.use(express.static(path.join(__dirname, 'public')))
   .post('/random/poll', random_poll)
   .post('/random/cancel', random_cancel)
   .listen(PORT, () => console.log(`Listening on ${PORT}`))
+
+  function whethertymokpoll(req: Request, res: Response) {
+    console.log("\n sent to '/whethertymokpoll'");
+    console.log(JSON.stringify(req.body, null, "\t"));
+  
+    const authorization = req.headers.authorization;
+    if (authorization == null) {
+      res.send('null'); // FIXME: does not conform to RFC 6750
+      return;
+    } else if (authorization.slice(0,7) !== "Bearer ") {
+      res.send('null'); // FIXME: does not conform to RFC 6750
+      return;
+    }
+  
+    const token_ = authorization.slice(7);
+    const maybe_room_info = person_to_room.get(token_ as AccessToken);
+    if (typeof maybe_room_info === "undefined") {
+      res.send('null');
+      return;
+    }
+  
+    console.log("from", req.headers.authorization);
+    res.json(replyToWhetherTyMokPoll(maybe_room_info));
+  }
 
 function infpoll(req: Request, res: Response) {
   console.log("\n sent to '/infpoll'");

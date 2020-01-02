@@ -448,6 +448,17 @@ function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(game_state, src,
     }
     return { hand_is_made: false };
 }
+function replyToWhetherTyMokPoll(room_info) {
+    const game_state = room_to_gamestate.get(room_info.room_id);
+    const dat = getLastMove(game_state);
+    if (typeof dat === "undefined") {
+        return null;
+    }
+    if (dat.status == null) {
+        return null;
+    }
+    return dat.status;
+}
 function replyToInfPoll(room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
     const dat = getLastMove(game_state);
@@ -669,6 +680,7 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
     .post('/mainpoll', mainpoll)
     .post('/infpoll', infpoll)
     .post('/whethertymok', whethertymok)
+    .post('/whethertymokpoll', whethertymokpoll)
     .post('/slow', (req, res) => {
     (async () => {
         let time = Math.random() * 1000 | 0;
@@ -682,6 +694,27 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
     .post('/random/poll', random_poll)
     .post('/random/cancel', random_cancel)
     .listen(PORT, () => console.log(`Listening on ${PORT}`));
+function whethertymokpoll(req, res) {
+    console.log("\n sent to '/whethertymokpoll'");
+    console.log(JSON.stringify(req.body, null, "\t"));
+    const authorization = req.headers.authorization;
+    if (authorization == null) {
+        res.send('null'); // FIXME: does not conform to RFC 6750
+        return;
+    }
+    else if (authorization.slice(0, 7) !== "Bearer ") {
+        res.send('null'); // FIXME: does not conform to RFC 6750
+        return;
+    }
+    const token_ = authorization.slice(7);
+    const maybe_room_info = person_to_room.get(token_);
+    if (typeof maybe_room_info === "undefined") {
+        res.send('null');
+        return;
+    }
+    console.log("from", req.headers.authorization);
+    res.json(replyToWhetherTyMokPoll(maybe_room_info));
+}
 function infpoll(req, res) {
     console.log("\n sent to '/infpoll'");
     console.log(JSON.stringify(req.body, null, "\t"));
