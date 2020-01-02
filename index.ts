@@ -557,27 +557,29 @@ function replyToWhetherTyMokPoll(room_info: RoomInfoWithPerspective): Ret_Whethe
 
 }
 
-function replyToInfPoll(room_info: RoomInfoWithPerspective): MoveToBePolled | "not yet" | "not good" {
+type Ret_InfPoll =  {legal: true, content: MoveToBePolled | "not yet"} | {legal: false, whyIllegal: string};
+
+function replyToInfPoll(room_info: RoomInfoWithPerspective): Ret_InfPoll {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   
   const dat = getLastMove(game_state);
   if (typeof dat === "undefined") {
-    return "not good";
+    return {legal: false, whyIllegal: "there is no last move"};
   }
 
   if (room_info.is_IA_down_for_me === dat.byIAOwner) {
-    return "not good";
+    return {legal: false, whyIllegal: "it's not your turn"};
   }
 
   if (dat.move.type !== "InfAfterStep") {
-    return "not good";
+    return {legal: false, whyIllegal: "InfAfterStep is not happening"};
   }
 
   if ( dat.move.finalResult == null ){
-    return "not yet";
+    return {legal: true, content: "not yet"};
   }
 
-  return dat.move;
+  return {legal: true, content: dat.move};
 }
 
 type Ret_MainPoll = {legal: true, content: MoveToBePolled | "not yet"} | {legal: false, whyIllegal: string}
