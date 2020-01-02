@@ -920,10 +920,10 @@ app.use(express.static(path.join(__dirname, 'public')))
     }
   })
   .post('/', main)
-  .post('/mainpoll', mainpoll)
-  .post('/infpoll', infpoll)
+  .post('/mainpoll', somepoll("/mainpoll", replyToMainPoll))
+  .post('/infpoll', somepoll("/infpoll", replyToInfPoll))
   .post('/whethertymok', whethertymok)
-  .post('/whethertymokpoll', whethertymokpoll)
+  .post('/whethertymokpoll', somepoll("/whethertymokpoll", replyToWhetherTyMokPoll))
   .post('/slow', (req, res) => {
     (async () => {
       let time = Math.random() * 1000 | 0;
@@ -937,10 +937,11 @@ app.use(express.static(path.join(__dirname, 'public')))
   .post('/random/entry', random_entrance.entrance)
   .post('/random/poll', random_entrance.poll)
   .post('/random/cancel', random_entrance.cancel)
-  .listen(PORT, () => console.log(`Listening on ${PORT}`))
+  .listen(PORT, () => console.log(`Listening on ${PORT}`));
 
-  function whethertymokpoll(req: Request, res: Response) {
-    console.log("\n sent to '/whethertymokpoll'");
+function somepoll<T>(address: string, replyfn: (room_info: RoomInfoWithPerspective) => T) {
+  return function (req: Request, res: Response) {
+    console.log(`\n sent to '${address}'`);
     console.log(JSON.stringify(req.body, null, "\t"));
   
     const authorization = req.headers.authorization;
@@ -960,55 +961,8 @@ app.use(express.static(path.join(__dirname, 'public')))
     }
   
     console.log("from", req.headers.authorization);
-    res.json(replyToWhetherTyMokPoll(maybe_room_info));
+    res.json(replyfn(maybe_room_info));
   }
-
-function infpoll(req: Request, res: Response) {
-  console.log("\n sent to '/infpoll'");
-  console.log(JSON.stringify(req.body, null, "\t"));
-
-  const authorization = req.headers.authorization;
-  if (authorization == null) {
-    res.send('null'); // FIXME: does not conform to RFC 6750
-    return;
-  } else if (authorization.slice(0,7) !== "Bearer ") {
-    res.send('null'); // FIXME: does not conform to RFC 6750
-    return;
-  }
-
-  const token_ = authorization.slice(7);
-  const maybe_room_info = person_to_room.get(token_ as AccessToken);
-  if (typeof maybe_room_info === "undefined") {
-    res.send('null');
-    return;
-  }
-
-  console.log("from", req.headers.authorization);
-  res.json(replyToInfPoll(maybe_room_info));
-}
-
-function mainpoll(req: Request, res: Response) {
-  console.log("\n sent to '/mainpoll'");
-  console.log(JSON.stringify(req.body, null, "\t"));
-
-  const authorization = req.headers.authorization;
-  if (authorization == null) {
-    res.send('null'); // FIXME: does not conform to RFC 6750
-    return;
-  } else if (authorization.slice(0,7) !== "Bearer ") {
-    res.send('null'); // FIXME: does not conform to RFC 6750
-    return;
-  }
-
-  const token_ = authorization.slice(7);
-  const maybe_room_info = person_to_room.get(token_ as AccessToken);
-  if (typeof maybe_room_info === "undefined") {
-    res.send('null');
-    return;
-  }
-
-  console.log("from", req.headers.authorization);
-  res.json(replyToMainPoll(maybe_room_info));
 }
 
 function whethertymok(req: Request, res: Response) {
