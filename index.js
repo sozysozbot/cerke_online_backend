@@ -923,6 +923,16 @@ function whethertymok(req, res) {
     if (message === true) { // ty mok1
         final_obj.status = "ty mok1";
         res.json({ legal: true });
+        const log2RateProgressMap = {
+            0: 1,
+            1: 2,
+            2: 3,
+            3: 4,
+            4: 5,
+            5: 6,
+            6: 6,
+        };
+        game_state.log2_rate = log2RateProgressMap[game_state.log2_rate];
     }
     else {
         final_obj.status = "ta xot1";
@@ -943,6 +953,40 @@ function whethertymok(req, res) {
             const _should_not_reach_here = game_state.season;
             throw new Error("should not happen");
         }
+        if (maybe_room_info.is_IA_down_for_me) {
+            game_state.IA_owner_s_score += calculateHandsAndScore(game_state.f.hop1zuo1OfIAOwner).score * Math.pow(2, game_state.log2_rate);
+            if (game_state.IA_owner_s_score >= 40) {
+                console.log("the game has ended!");
+                res.json({ legal: true, is_first_move_my_move: null });
+                return;
+            }
+        }
+        else {
+            game_state.IA_owner_s_score -= calculateHandsAndScore(game_state.f.hop1zuo1OfNonIAOwner).score * Math.pow(2, game_state.log2_rate);
+            if (game_state.IA_owner_s_score < 0) {
+                console.log("the game has ended!");
+                res.json({ legal: true, is_first_move_my_move: null });
+                return;
+            }
+        }
+        // reset the board
+        game_state.f = {
+            currentBoard: [
+                [{ color: Color.Huok2, prof: Profession.Kua2, side: Side.NonIAOwner },
+                    { color: Color.Huok2, prof: Profession.Maun1, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kaun1, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Uai1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Io, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Uai1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kaun1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Maun1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kua2, side: Side.NonIAOwner }],
+                [{ color: Color.Kok1, prof: Profession.Tuk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Gua2, side: Side.NonIAOwner }, null, { color: Color.Kok1, prof: Profession.Dau2, side: Side.NonIAOwner }, null, { color: Color.Huok2, prof: Profession.Dau2, side: Side.NonIAOwner }, null, { color: Color.Huok2, prof: Profession.Gua2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Tuk2, side: Side.NonIAOwner }],
+                [{ color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Nuak1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }],
+                [null, null, null, null, null, null, null, null, null],
+                [null, null, null, null, "Tam2", null, null, null, null],
+                [null, null, null, null, null, null, null, null, null],
+                [{ color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Nuak1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }],
+                [{ color: Color.Huok2, prof: Profession.Tuk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Gua2, side: Side.IAOwner }, null, { color: Color.Huok2, prof: Profession.Dau2, side: Side.IAOwner }, null, { color: Color.Kok1, prof: Profession.Dau2, side: Side.IAOwner }, null, { color: Color.Kok1, prof: Profession.Gua2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Tuk2, side: Side.IAOwner }],
+                [{ color: Color.Kok1, prof: Profession.Kua2, side: Side.IAOwner },
+                    { color: Color.Kok1, prof: Profession.Maun1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kaun1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Uai1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Io, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Uai1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kaun1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Maun1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kua2, side: Side.IAOwner }],
+            ],
+            hop1zuo1OfIAOwner: [],
+            hop1zuo1OfNonIAOwner: []
+        };
         res.json({ legal: true, is_first_move_my_move: maybe_room_info.is_first_move_my_move[game_state.season] });
     }
 }
