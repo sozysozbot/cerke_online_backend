@@ -42,6 +42,79 @@ enum Profession {
   Io, // King, 王, ales
 }
 
+type RoomId = string & { __RoomIdBrand: never };
+type AccessToken = string & { __AccessTokenBrand: never };
+
+type RoomInfoWithPerspective = {room_id: RoomId, is_first_move_my_move: boolean, is_IA_down_for_me: boolean};
+
+type Season = 0 | 1 | 2 | 3;
+type Log2_Rate = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+/*
+ * Theoretically speaking, it is necessary to distinguish x32 and x64
+ * because it is possible to score 1 point (3+3-5).
+ * Not that it will ever be of use in any real situation.
+ */
+
+interface Field {
+  currentBoard: Board;
+  hop1zuo1OfIAOwner: NonTam2PieceIAOwner[];
+  hop1zuo1OfNonIAOwner: NonTam2PieceNonIAOwner[];
+}
+
+export enum Side {
+  IAOwner,
+  NonIAOwner,
+}
+
+export interface NonTam2PieceNonIAOwner {
+  color: Color; // The color of the piece
+  prof: Profession; // The profession of the piece
+  side: Side.NonIAOwner; // The side that the piece belongs to
+}
+
+export interface NonTam2PieceIAOwner {
+  color: Color; // The color of the piece
+  prof: Profession; // The profession of the piece
+  side: Side.IAOwner; // The side that the piece belongs to
+}
+
+export interface NonTam2Piece {
+  color: Color; // The color of the piece
+  prof: Profession; // The profession of the piece
+  side: Side; // The side that the piece belongs to
+}
+
+export type Piece = "Tam2" | NonTam2Piece;
+
+export type Tuple9<T> = [T, T, T, T, T, T, T, T, T];
+
+export type Board = Tuple9<Row>;
+export type Row = Tuple9<Piece | null>;
+
+type Tuple4<T> = [T, T, T, T]
+
+interface GameState {
+  f: Field;
+  tam_itself_is_tam_hue: boolean;
+  is_IA_owner_s_turn: boolean;
+  waiting_for_after_half_acceptance: null | {
+    src: AbsoluteCoord,
+    step: AbsoluteCoord
+  };
+  season: Season;
+  IA_owner_s_score: number;
+  log2_rate: Log2_Rate;
+  moves_to_be_polled: Tuple4< Array<MovePiece> >;
+}
+
+type HandCompletionStatus = null | "ty mok1" | "ta xot1" | "not yet"
+
+type MovePiece = {
+  move: MoveToBePolled,
+  status: HandCompletionStatus,
+  byIAOwner: boolean
+};
+
 const ColorVerifier = t.union([t.literal(0), t.literal(1)]);
 const ProfessionVerifier = t.union([
   t.literal(0), t.literal(1), t.literal(2),
@@ -118,7 +191,7 @@ const Verifier = t.union([
   TamMoveVerifier
 ]);
 
-const PollVerifier = t.strict({
+const RandomEntrancePollVerifier = t.strict({
   access_token: t.string
 })
 
@@ -711,8 +784,8 @@ app.use(express.static(path.join(__dirname, 'public')))
     })();
   })
   .post('/random/entry', random_entrance)
-  .post('/random/poll', random_poll)
-  .post('/random/cancel', random_cancel)
+  .post('/random/poll', random_entrance_poll)
+  .post('/random/cancel', random_entrance_cancel)
   .listen(PORT, () => console.log(`Listening on ${PORT}`))
 
   function whethertymokpoll(req: Request, res: Response) {
@@ -884,79 +957,6 @@ function main(req: Request, res: Response) {
   res.json(analyzeMessage(message, maybe_room_info));
 }
 
-type RoomId = string & { __RoomIdBrand: never };
-type AccessToken = string & { __AccessTokenBrand: never };
-
-type RoomInfoWithPerspective = {room_id: RoomId, is_first_move_my_move: boolean, is_IA_down_for_me: boolean};
-
-type Season = 0 | 1 | 2 | 3;
-type Log2_Rate = 0 | 1 | 2 | 3 | 4 | 5 | 6;
-/*
- * Theoretically speaking, it is necessary to distinguish x32 and x64
- * because it is possible to score 1 point (3+3-5).
- * Not that it will ever be of use in any real situation.
- */
-
-interface Field {
-  currentBoard: Board;
-  hop1zuo1OfIAOwner: NonTam2PieceIAOwner[];
-  hop1zuo1OfNonIAOwner: NonTam2PieceNonIAOwner[];
-}
-
-export enum Side {
-  IAOwner,
-  NonIAOwner,
-}
-
-export interface NonTam2PieceNonIAOwner {
-  color: Color; // The color of the piece
-  prof: Profession; // The profession of the piece
-  side: Side.NonIAOwner; // The side that the piece belongs to
-}
-
-export interface NonTam2PieceIAOwner {
-  color: Color; // The color of the piece
-  prof: Profession; // The profession of the piece
-  side: Side.IAOwner; // The side that the piece belongs to
-}
-
-export interface NonTam2Piece {
-  color: Color; // The color of the piece
-  prof: Profession; // The profession of the piece
-  side: Side; // The side that the piece belongs to
-}
-
-export type Piece = "Tam2" | NonTam2Piece;
-
-export type Tuple9<T> = [T, T, T, T, T, T, T, T, T];
-
-export type Board = Tuple9<Row>;
-export type Row = Tuple9<Piece | null>;
-
-type Tuple4<T> = [T, T, T, T]
-
-interface GameState {
-  f: Field;
-  tam_itself_is_tam_hue: boolean;
-  is_IA_owner_s_turn: boolean;
-  waiting_for_after_half_acceptance: null | {
-    src: AbsoluteCoord,
-    step: AbsoluteCoord
-  };
-  season: Season;
-  IA_owner_s_score: number;
-  log2_rate: Log2_Rate;
-  moves_to_be_polled: Tuple4< Array<MovePiece> >;
-}
-
-type HandCompletionStatus = null | "ty mok1" | "ta xot1" | "not yet"
-
-type MovePiece = {
-  move: MoveToBePolled,
-  status: HandCompletionStatus,
-  byIAOwner: boolean
-};
-
 var waiting_list = new Set<AccessToken>();
 var person_to_room = new Map<AccessToken, RoomInfoWithPerspective >();
 var room_to_gamestate = new Map<RoomId, GameState>();
@@ -1036,14 +1036,14 @@ function randomEntry(): RandomEntry {
 
 }
 
-function random_poll(req: Request, res: Response) {
+function random_entrance_poll(req: Request, res: Response) {
   const onLeft = (errors: t.Errors): Ret_RandomPoll => ({
     legal: false,
     whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
   })
 
   return res.json(pipe(
-    PollVerifier.decode(req.body),
+    RandomEntrancePollVerifier.decode(req.body),
     fold(onLeft, function (msg: { "access_token": string }): Ret_RandomPoll {
       const access_token = msg.access_token as AccessToken
       const maybe_room_id: RoomInfoWithPerspective | undefined = person_to_room.get(access_token)
@@ -1078,14 +1078,14 @@ function random_poll(req: Request, res: Response) {
     })));
 }
 
-function random_cancel(req: Request, res: Response) {
+function random_entrance_cancel(req: Request, res: Response) {
   const onLeft = (errors: t.Errors): Ret_RandomCancel => ({
     legal: false,
     whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
   })
 
   return res.json(pipe(
-    PollVerifier.decode(req.body),
+    RandomEntrancePollVerifier.decode(req.body),
     fold(onLeft, function (msg: { "access_token": string }): Ret_RandomCancel {
       const access_token = msg.access_token as AccessToken
       const maybe_room_id: RoomInfoWithPerspective | undefined = person_to_room.get(access_token)

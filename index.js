@@ -35,6 +35,11 @@ var Profession;
     Profession[Profession["Uai1"] = 8] = "Uai1";
     Profession[Profession["Io"] = 9] = "Io";
 })(Profession || (Profession = {}));
+var Side;
+(function (Side) {
+    Side[Side["IAOwner"] = 0] = "IAOwner";
+    Side[Side["NonIAOwner"] = 1] = "NonIAOwner";
+})(Side = exports.Side || (exports.Side = {}));
 const ColorVerifier = t.union([t.literal(0), t.literal(1)]);
 const ProfessionVerifier = t.union([
     t.literal(0), t.literal(1), t.literal(2),
@@ -104,7 +109,7 @@ const Verifier = t.union([
     NormalNonTamMoveVerifier,
     TamMoveVerifier
 ]);
-const PollVerifier = t.strict({
+const RandomEntrancePollVerifier = t.strict({
     access_token: t.string
 });
 const PORT = process.env.PORT || 23564;
@@ -691,8 +696,8 @@ app.use(express_1.default.static(path_1.default.join(__dirname, 'public')))
     })();
 })
     .post('/random/entry', random_entrance)
-    .post('/random/poll', random_poll)
-    .post('/random/cancel', random_cancel)
+    .post('/random/poll', random_entrance_poll)
+    .post('/random/cancel', random_entrance_cancel)
     .listen(PORT, () => console.log(`Listening on ${PORT}`));
 function whethertymokpoll(req, res) {
     console.log("\n sent to '/whethertymokpoll'");
@@ -839,11 +844,6 @@ function main(req, res) {
     }
     res.json(analyzeMessage(message, maybe_room_info));
 }
-var Side;
-(function (Side) {
-    Side[Side["IAOwner"] = 0] = "IAOwner";
-    Side[Side["NonIAOwner"] = 1] = "NonIAOwner";
-})(Side = exports.Side || (exports.Side = {}));
 var waiting_list = new Set();
 var person_to_room = new Map();
 var room_to_gamestate = new Map();
@@ -914,12 +914,12 @@ function randomEntry() {
         "access_token": newToken
     };
 }
-function random_poll(req, res) {
+function random_entrance_poll(req, res) {
     const onLeft = (errors) => ({
         legal: false,
         whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
     });
-    return res.json(pipeable_1.pipe(PollVerifier.decode(req.body), Either_1.fold(onLeft, function (msg) {
+    return res.json(pipeable_1.pipe(RandomEntrancePollVerifier.decode(req.body), Either_1.fold(onLeft, function (msg) {
         const access_token = msg.access_token;
         const maybe_room_id = person_to_room.get(access_token);
         if (typeof maybe_room_id !== "undefined") {
@@ -953,12 +953,12 @@ function random_poll(req, res) {
         }
     })));
 }
-function random_cancel(req, res) {
+function random_entrance_cancel(req, res) {
     const onLeft = (errors) => ({
         legal: false,
         whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
     });
-    return res.json(pipeable_1.pipe(PollVerifier.decode(req.body), Either_1.fold(onLeft, function (msg) {
+    return res.json(pipeable_1.pipe(RandomEntrancePollVerifier.decode(req.body), Either_1.fold(onLeft, function (msg) {
         const access_token = msg.access_token;
         const maybe_room_id = person_to_room.get(access_token);
         // you already have a room. you cannot cancel
