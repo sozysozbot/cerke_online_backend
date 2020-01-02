@@ -191,10 +191,6 @@ const Verifier = t.union([
   TamMoveVerifier
 ]);
 
-const RandomEntrancePollVerifier = t.strict({
-  access_token: t.string
-})
-
 const PORT = process.env.PORT || 23564;
 const bodyParser = require('body-parser');
 const { Pool } = require('pg');
@@ -741,6 +737,161 @@ function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Re
   );
 }
 
+const random_entrance = (() => {  
+  const RandomEntrancePollVerifier = t.strict({
+    access_token: t.string
+  });
+  function random_entrance_poll(req: Request, res: Response) {
+    const onLeft = (errors: t.Errors): Ret_RandomPoll => ({
+      legal: false,
+      whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
+    })
+  
+    return res.json(pipe(
+      RandomEntrancePollVerifier.decode(req.body),
+      fold(onLeft, function (msg: { "access_token": string }): Ret_RandomPoll {
+        const access_token = msg.access_token as AccessToken
+        const maybe_room_id: RoomInfoWithPerspective | undefined = person_to_room.get(access_token)
+        if (typeof maybe_room_id !== "undefined") {
+          return {
+            legal: true,
+            ret: {
+              "state": "let_the_game_begin",
+              "access_token": msg.access_token,
+              is_first_move_my_move: maybe_room_id.is_first_move_my_move,
+              is_IA_down_for_me: maybe_room_id.is_IA_down_for_me
+            }
+          }
+        } else if (waiting_list.has(access_token)) { // not yet assigned a room, but is in the waiting list
+          return {
+            legal: true,
+            ret: {
+              "state": "in_waiting_list",
+              "access_token": msg.access_token
+            }
+          }
+        } else { // You sent me a poll, but  I don't know you. Hmm...
+          return {
+            legal: false,
+            whyIllegal: `Invalid access token: 
+            I don't know your access token, which is ${access_token}.
+            Please reapply by sending an empty object to random/entry .`
+          }
+  
+          // FIXME: in the future, I might let you reapply. This will of course change your UUID.
+        }
+      })));
+  }
+  
+  function random_entrance_cancel(req: Request, res: Response) {
+    const onLeft = (errors: t.Errors): Ret_RandomCancel => ({
+      legal: false,
+      whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
+    })
+  
+    return res.json(pipe(
+      RandomEntrancePollVerifier.decode(req.body),
+      fold(onLeft, function (msg: { "access_token": string }): Ret_RandomCancel {
+        const access_token = msg.access_token as AccessToken
+        const maybe_room_id: RoomInfoWithPerspective | undefined = person_to_room.get(access_token)
+  
+        // you already have a room. you cannot cancel
+        if (typeof maybe_room_id !== "undefined") {
+          return {
+            legal: true,
+            cancellable: false
+          }
+        } else if (waiting_list.has(access_token)) { // not yet assigned a room, but is in the waiting list
+          waiting_list.delete(access_token);
+          console.log(`Canceled ${access_token}.`);
+          return {
+            legal: true,
+            cancellable: true
+          }
+        } else { // You told me to cancel, but I don't know you. Hmm...
+          // well, at least you can cancel
+          return {
+            legal: true,
+            cancellable: true
+          }
+        }
+      })));
+  }
+  
+  function random_entrance_entrance(_req: Request, res: Response) {
+    res.json(randomEntry());
+  }
+
+  function randomEntry(): RandomEntry {
+    const newToken: AccessToken = uuidv4() as AccessToken;
+    for (let token of waiting_list) {
+      waiting_list.delete(token);
+      const room_id = open_a_room(token, newToken);
+  
+      const is_first_turn_newToken_turn = Math.random() < 0.5;
+      const is_IA_down_for_newToken = Math.random() < 0.5;
+  
+      person_to_room.set(newToken, {
+        room_id, 
+        is_first_move_my_move: is_first_turn_newToken_turn,
+        is_IA_down_for_me: is_IA_down_for_newToken
+      });
+      person_to_room.set(token, {
+        room_id, 
+        is_first_move_my_move: !is_first_turn_newToken_turn,
+        is_IA_down_for_me: !is_IA_down_for_newToken
+      });
+      room_to_gamestate.set(room_id, {
+        tam_itself_is_tam_hue: true,
+        season: 0,
+        log2_rate: 0,
+        IA_owner_s_score: 20,
+        is_IA_owner_s_turn: is_first_turn_newToken_turn === is_IA_down_for_newToken,
+        f: {
+          currentBoard: [
+            [{ color: Color.Huok2, prof: Profession.Kua2, side: Side.NonIAOwner },
+                { color: Color.Huok2, prof: Profession.Maun1, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kaun1, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Uai1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Io, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Uai1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kaun1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Maun1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kua2, side: Side.NonIAOwner }],
+            [{ color: Color.Kok1, prof: Profession.Tuk2, side: Side.NonIAOwner }, {color: Color.Kok1, prof: Profession.Gua2, side: Side.NonIAOwner }, null, { color: Color.Kok1, prof: Profession.Dau2, side: Side.NonIAOwner }, null, { color: Color.Huok2, prof: Profession.Dau2, side: Side.NonIAOwner }, null, {color: Color.Huok2, prof: Profession.Gua2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Tuk2, side: Side.NonIAOwner }],
+            [{ color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Nuak1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }],
+            [null, null, null, null, null, null, null, null, null],
+            [null, null, null, null, "Tam2", null, null, null, null],
+            [null, null, null, null, null, null, null, null, null],
+            [{ color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Nuak1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }],
+            [{ color: Color.Huok2, prof: Profession.Tuk2, side: Side.IAOwner }, {color: Color.Huok2, prof: Profession.Gua2, side: Side.IAOwner }, null, { color: Color.Huok2, prof: Profession.Dau2, side: Side.IAOwner }, null, { color: Color.Kok1, prof: Profession.Dau2, side: Side.IAOwner }, null, {color: Color.Kok1, prof: Profession.Gua2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Tuk2, side: Side.IAOwner }],
+            [{ color: Color.Kok1, prof: Profession.Kua2, side: Side.IAOwner },
+                { color: Color.Kok1, prof: Profession.Maun1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kaun1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Uai1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Io, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Uai1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kaun1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Maun1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kua2, side: Side.IAOwner }],
+          ],
+          hop1zuo1OfIAOwner: [],
+          hop1zuo1OfNonIAOwner: []
+        },
+        waiting_for_after_half_acceptance: null,
+        moves_to_be_polled: [[], [], [], []]
+      })
+      console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`);
+      console.log(`${is_first_turn_newToken_turn ? newToken : token} moves first.`);
+      console.log(`IA is down, from the perspective of ${is_IA_down_for_newToken ? newToken : token}.`);
+  
+      // exit after finding the first person
+      return {
+        "state": "let_the_game_begin",
+        "access_token": newToken,
+        is_first_move_my_move: is_first_turn_newToken_turn,
+        is_IA_down_for_me: is_IA_down_for_newToken
+      };
+    }
+  
+    // If you are still here, that means no one is found
+    waiting_list.add(newToken);
+    console.log(`Cannot find a partner for ${newToken}, who will thus be put in the waiting list.`);
+    return {
+      "state": "in_waiting_list",
+      "access_token": newToken
+    };
+  }
+  
+  return {entrance: random_entrance_entrance, poll: random_entrance_poll, cancel: random_entrance_cancel}
+})();
+
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -783,9 +934,9 @@ app.use(express.static(path.join(__dirname, 'public')))
       main(req, res);
     })();
   })
-  .post('/random/entry', random_entrance)
-  .post('/random/poll', random_entrance_poll)
-  .post('/random/cancel', random_entrance_cancel)
+  .post('/random/entry', random_entrance.entrance)
+  .post('/random/poll', random_entrance.poll)
+  .post('/random/cancel', random_entrance.cancel)
   .listen(PORT, () => console.log(`Listening on ${PORT}`))
 
   function whethertymokpoll(req: Request, res: Response) {
@@ -968,151 +1119,3 @@ function open_a_room(token1: AccessToken, token2: AccessToken): RoomId {
   return uuidv4() as RoomId;
 }
 
-function randomEntry(): RandomEntry {
-  const newToken: AccessToken = uuidv4() as AccessToken;
-  for (let token of waiting_list) {
-    waiting_list.delete(token);
-    const room_id = open_a_room(token, newToken);
-
-    const is_first_turn_newToken_turn = Math.random() < 0.5;
-    const is_IA_down_for_newToken = Math.random() < 0.5;
-
-    person_to_room.set(newToken, {
-      room_id, 
-      is_first_move_my_move: is_first_turn_newToken_turn,
-      is_IA_down_for_me: is_IA_down_for_newToken
-    });
-    person_to_room.set(token, {
-      room_id, 
-      is_first_move_my_move: !is_first_turn_newToken_turn,
-      is_IA_down_for_me: !is_IA_down_for_newToken
-    });
-    room_to_gamestate.set(room_id, {
-      tam_itself_is_tam_hue: true,
-      season: 0,
-      log2_rate: 0,
-      IA_owner_s_score: 20,
-      is_IA_owner_s_turn: is_first_turn_newToken_turn === is_IA_down_for_newToken,
-      f: {
-        currentBoard: [
-          [{ color: Color.Huok2, prof: Profession.Kua2, side: Side.NonIAOwner },
-              { color: Color.Huok2, prof: Profession.Maun1, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kaun1, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Uai1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Io, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Uai1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kaun1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Maun1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kua2, side: Side.NonIAOwner }],
-          [{ color: Color.Kok1, prof: Profession.Tuk2, side: Side.NonIAOwner }, {color: Color.Kok1, prof: Profession.Gua2, side: Side.NonIAOwner }, null, { color: Color.Kok1, prof: Profession.Dau2, side: Side.NonIAOwner }, null, { color: Color.Huok2, prof: Profession.Dau2, side: Side.NonIAOwner }, null, {color: Color.Huok2, prof: Profession.Gua2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Tuk2, side: Side.NonIAOwner }],
-          [{ color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Nuak1, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.NonIAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.NonIAOwner }],
-          [null, null, null, null, null, null, null, null, null],
-          [null, null, null, null, "Tam2", null, null, null, null],
-          [null, null, null, null, null, null, null, null, null],
-          [{ color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Nuak1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kauk2, side: Side.IAOwner }],
-          [{ color: Color.Huok2, prof: Profession.Tuk2, side: Side.IAOwner }, {color: Color.Huok2, prof: Profession.Gua2, side: Side.IAOwner }, null, { color: Color.Huok2, prof: Profession.Dau2, side: Side.IAOwner }, null, { color: Color.Kok1, prof: Profession.Dau2, side: Side.IAOwner }, null, {color: Color.Kok1, prof: Profession.Gua2, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Tuk2, side: Side.IAOwner }],
-          [{ color: Color.Kok1, prof: Profession.Kua2, side: Side.IAOwner },
-              { color: Color.Kok1, prof: Profession.Maun1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Kaun1, side: Side.IAOwner }, { color: Color.Kok1, prof: Profession.Uai1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Io, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Uai1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kaun1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Maun1, side: Side.IAOwner }, { color: Color.Huok2, prof: Profession.Kua2, side: Side.IAOwner }],
-        ],
-        hop1zuo1OfIAOwner: [],
-        hop1zuo1OfNonIAOwner: []
-      },
-      waiting_for_after_half_acceptance: null,
-      moves_to_be_polled: [[], [], [], []]
-    })
-    console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`);
-    console.log(`${is_first_turn_newToken_turn ? newToken : token} moves first.`);
-    console.log(`IA is down, from the perspective of ${is_IA_down_for_newToken ? newToken : token}.`);
-
-    // exit after finding the first person
-    return {
-      "state": "let_the_game_begin",
-      "access_token": newToken,
-      is_first_move_my_move: is_first_turn_newToken_turn,
-      is_IA_down_for_me: is_IA_down_for_newToken
-    };
-  }
-
-  // If you are still here, that means no one is found
-  waiting_list.add(newToken);
-  console.log(`Cannot find a partner for ${newToken}, who will thus be put in the waiting list.`);
-  return {
-    "state": "in_waiting_list",
-    "access_token": newToken
-  };
-
-}
-
-function random_entrance_poll(req: Request, res: Response) {
-  const onLeft = (errors: t.Errors): Ret_RandomPoll => ({
-    legal: false,
-    whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
-  })
-
-  return res.json(pipe(
-    RandomEntrancePollVerifier.decode(req.body),
-    fold(onLeft, function (msg: { "access_token": string }): Ret_RandomPoll {
-      const access_token = msg.access_token as AccessToken
-      const maybe_room_id: RoomInfoWithPerspective | undefined = person_to_room.get(access_token)
-      if (typeof maybe_room_id !== "undefined") {
-        return {
-          legal: true,
-          ret: {
-            "state": "let_the_game_begin",
-            "access_token": msg.access_token,
-            is_first_move_my_move: maybe_room_id.is_first_move_my_move,
-            is_IA_down_for_me: maybe_room_id.is_IA_down_for_me
-          }
-        }
-      } else if (waiting_list.has(access_token)) { // not yet assigned a room, but is in the waiting list
-        return {
-          legal: true,
-          ret: {
-            "state": "in_waiting_list",
-            "access_token": msg.access_token
-          }
-        }
-      } else { // You sent me a poll, but  I don't know you. Hmm...
-        return {
-          legal: false,
-          whyIllegal: `Invalid access token: 
-          I don't know your access token, which is ${access_token}.
-          Please reapply by sending an empty object to random/entry .`
-        }
-
-        // FIXME: in the future, I might let you reapply. This will of course change your UUID.
-      }
-    })));
-}
-
-function random_entrance_cancel(req: Request, res: Response) {
-  const onLeft = (errors: t.Errors): Ret_RandomCancel => ({
-    legal: false,
-    whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`
-  })
-
-  return res.json(pipe(
-    RandomEntrancePollVerifier.decode(req.body),
-    fold(onLeft, function (msg: { "access_token": string }): Ret_RandomCancel {
-      const access_token = msg.access_token as AccessToken
-      const maybe_room_id: RoomInfoWithPerspective | undefined = person_to_room.get(access_token)
-
-      // you already have a room. you cannot cancel
-      if (typeof maybe_room_id !== "undefined") {
-        return {
-          legal: true,
-          cancellable: false
-        }
-      } else if (waiting_list.has(access_token)) { // not yet assigned a room, but is in the waiting list
-        waiting_list.delete(access_token);
-        console.log(`Canceled ${access_token}.`);
-        return {
-          legal: true,
-          cancellable: true
-        }
-      } else { // You told me to cancel, but I don't know you. Hmm...
-        // well, at least you can cancel
-        return {
-          legal: true,
-          cancellable: true
-        }
-      }
-    })));
-}
-
-function random_entrance(_req: Request, res: Response) {
-  res.json(randomEntry());
-}
