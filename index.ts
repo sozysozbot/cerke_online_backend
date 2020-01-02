@@ -519,7 +519,7 @@ function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
   return {hand_is_made: false}
 }
 
-function replyToWhetherTyMokPoll(room_info: RoomInfoWithPerspective): "ty mok1" | "ta xot1" | "not yet" | null {
+function replyToWhetherTyMokPoll(room_info: RoomInfoWithPerspective): "ty mok1" | {is_first_move_my_move: boolean | null} | "not yet" | null {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   
   const dat = getLastMove(game_state);
@@ -529,9 +529,17 @@ function replyToWhetherTyMokPoll(room_info: RoomInfoWithPerspective): "ty mok1" 
 
   if (dat.status == null) {
     return null;
+  } else if (dat.status === "ty mok1") {
+    return "ty mok1";
+  } else if (dat.status === "not yet") {
+    return "not yet";
+  } else if (dat.status === "ta xot1") {
+    return {is_first_move_my_move: room_info.is_first_move_my_move[game_state.season]};
+  } else {
+    const _should_not_reach_here: never = dat.status;
+    throw new Error("should not happen");
   }
 
-  return dat.status;
 }
 
 function replyToInfPoll(room_info: RoomInfoWithPerspective): MoveToBePolled | "not yet" | "not good" {
@@ -1022,12 +1030,25 @@ function whethertymok(req: Request, res: Response) {
   }
 
   if (message === true) { // ty mok1
-    final_obj.status = "ty mok1"
+    final_obj.status = "ty mok1";
+    res.json({legal: true}); 
   } else {
-    final_obj.status = "ta xot1"
+    final_obj.status = "ta xot1";
+    if (game_state.season === 3) {
+      console.log("the game has ended!");
+      res.json({legal: true, is_first_move_my_move: null}); 
+    } else if (game_state.season === 0) {
+      game_state.season = 1;
+    } else if (game_state.season === 1) {
+      game_state.season = 2;
+    } else if (game_state.season === 2) {
+      game_state.season = 3;
+    } else {
+      const _should_not_reach_here: never = game_state.season;
+      throw new Error("should not happen");
+    }
+    res.json({legal: true, is_first_move_my_move: maybe_room_info.is_first_move_my_move[game_state.season]}); 
   }
-
-  res.json({legal: true}); 
 }
 
 function main(req: Request, res: Response) {

@@ -459,7 +459,19 @@ function replyToWhetherTyMokPoll(room_info) {
     if (dat.status == null) {
         return null;
     }
-    return dat.status;
+    else if (dat.status === "ty mok1") {
+        return "ty mok1";
+    }
+    else if (dat.status === "not yet") {
+        return "not yet";
+    }
+    else if (dat.status === "ta xot1") {
+        return { is_first_move_my_move: room_info.is_first_move_my_move[game_state.season] };
+    }
+    else {
+        const _should_not_reach_here = dat.status;
+        throw new Error("should not happen");
+    }
 }
 function replyToInfPoll(room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
@@ -910,11 +922,29 @@ function whethertymok(req, res) {
     }
     if (message === true) { // ty mok1
         final_obj.status = "ty mok1";
+        res.json({ legal: true });
     }
     else {
         final_obj.status = "ta xot1";
+        if (game_state.season === 3) {
+            console.log("the game has ended!");
+            res.json({ legal: true, is_first_move_my_move: null });
+        }
+        else if (game_state.season === 0) {
+            game_state.season = 1;
+        }
+        else if (game_state.season === 1) {
+            game_state.season = 2;
+        }
+        else if (game_state.season === 2) {
+            game_state.season = 3;
+        }
+        else {
+            const _should_not_reach_here = game_state.season;
+            throw new Error("should not happen");
+        }
+        res.json({ legal: true, is_first_move_my_move: maybe_room_info.is_first_move_my_move[game_state.season] });
     }
-    res.json({ legal: true });
 }
 function main(req, res) {
     console.log("\n sent to '/' or '/slow'");
