@@ -519,9 +519,11 @@ function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
   return {hand_is_made: false}
 }
 
-function replyToWhetherTyMokPoll(room_info: RoomInfoWithPerspective): {
+type Ret_WhetherTyMokPoll = {
   legal: true, content: "ty mok1" | {is_first_move_my_move: boolean | null} | "not yet"
-} | {legal: false, whyIllegal: string} {
+} | {legal: false, whyIllegal: string};
+
+function replyToWhetherTyMokPoll(room_info: RoomInfoWithPerspective): Ret_WhetherTyMokPoll {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   
   /* needs to access the current or previous season */
