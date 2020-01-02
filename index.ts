@@ -578,16 +578,18 @@ function replyToInfPoll(room_info: RoomInfoWithPerspective): MoveToBePolled | "n
   return dat.move;
 }
 
-function replyToMainPoll(room_info: RoomInfoWithPerspective): MoveToBePolled | "not yet" {
+type Ret_MainPoll = {legal: true, content: MoveToBePolled | "not yet"} | {legal: false, whyIllegal: string}
+
+function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   const dat = getLastMove(game_state);
   if (typeof dat === "undefined") {
-    return "not yet";
+    return {legal: true, content: "not yet"};
   }
   if (room_info.is_IA_down_for_me === dat.byIAOwner) {
-    return "not yet";
+    return {legal: true, content: "not yet"};
   }
-  return dat.move;
+  return {legal: true, content: dat.move};
 }
 
 function analyzeMessage(message: object, room_info: RoomInfoWithPerspective): Ret_InfAfterStep | Ret_AfterHalfAcceptance | Ret_NormalMove {

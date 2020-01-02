@@ -506,12 +506,12 @@ function replyToMainPoll(room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
     const dat = getLastMove(game_state);
     if (typeof dat === "undefined") {
-        return "not yet";
+        return { legal: true, content: "not yet" };
     }
     if (room_info.is_IA_down_for_me === dat.byIAOwner) {
-        return "not yet";
+        return { legal: true, content: "not yet" };
     }
-    return dat.move;
+    return { legal: true, content: dat.move };
 }
 function analyzeMessage(message, room_info) {
     const onLeft = (errors) => ({
