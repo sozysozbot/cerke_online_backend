@@ -524,10 +524,21 @@ function replyToWhetherTyMokPoll(room_info: RoomInfoWithPerspective): {
 } | {legal: false, whyIllegal: string} {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   
-  const dat = getLastMove(game_state);
-  if (typeof dat === "undefined") {
-    return {legal: false, whyIllegal: "no last move"};
+  /* needs to access the current or previous season */
+  const arr: MovePiece[] = (() => {
+    if (game_state.season === 0) { return game_state.moves_to_be_polled[game_state.season]; }
+    if (game_state.moves_to_be_polled[game_state.season].length === 0) { // the season has already progressed
+      return game_state.moves_to_be_polled[game_state.season - 1];
+    } else { // not yet progressed
+      return game_state.moves_to_be_polled[game_state.season];
+    }
+  })();
+
+  if (arr.length === 0) {
+    return {legal: false, whyIllegal: "no last move"}; 
   }
+
+  const dat = arr[arr.length - 1];
 
   if (dat.status == null) {
     return {legal: false, whyIllegal: "apparently, no hand was made"};
