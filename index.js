@@ -454,19 +454,19 @@ function replyToWhetherTyMokPoll(room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
     const dat = getLastMove(game_state);
     if (typeof dat === "undefined") {
-        return null;
+        return { legal: false, whyIllegal: "no last move" };
     }
     if (dat.status == null) {
-        return null;
+        return { legal: false, whyIllegal: "apparently, no hand was made" };
     }
     else if (dat.status === "ty mok1") {
-        return "ty mok1";
+        return { legal: true, content: "ty mok1" };
     }
     else if (dat.status === "not yet") {
-        return "not yet";
+        return { legal: true, content: "not yet" };
     }
     else if (dat.status === "ta xot1") {
-        return { is_first_move_my_move: room_info.is_first_move_my_move[game_state.season] };
+        return { legal: true, content: { is_first_move_my_move: room_info.is_first_move_my_move[game_state.season] } };
     }
     else {
         const _should_not_reach_here = dat.status;
@@ -861,17 +861,17 @@ function somepoll(address, replyfn) {
         console.log(JSON.stringify(req.body, null, "\t"));
         const authorization = req.headers.authorization;
         if (authorization == null) {
-            res.send('null'); // FIXME: does not conform to RFC 6750
+            res.json({ legal: false, whyIllegal: "send with `Authorization: Bearer [token]`" }); // FIXME: does not conform to RFC 6750
             return;
         }
         else if (authorization.slice(0, 7) !== "Bearer ") {
-            res.send('null'); // FIXME: does not conform to RFC 6750
+            res.json({ legal: false, whyIllegal: "send with `Authorization: Bearer [token]`" }); // FIXME: does not conform to RFC 6750
             return;
         }
         const token_ = authorization.slice(7);
         const maybe_room_info = person_to_room.get(token_);
         if (typeof maybe_room_info === "undefined") {
-            res.send('null');
+            res.json({ legal: false, whyIllegal: "unrecognized user" });
             return;
         }
         console.log("from", req.headers.authorization);
