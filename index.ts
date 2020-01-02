@@ -45,7 +45,7 @@ enum Profession {
 type RoomId = string & { __RoomIdBrand: never };
 type AccessToken = string & { __AccessTokenBrand: never };
 
-type RoomInfoWithPerspective = {room_id: RoomId, is_first_move_my_move: boolean, is_IA_down_for_me: boolean};
+type RoomInfoWithPerspective = {room_id: RoomId, is_first_move_my_move: Tuple4<boolean>, is_IA_down_for_me: boolean};
 
 type Season = 0 | 1 | 2 | 3;
 type Log2_Rate = 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -758,7 +758,7 @@ const random_entrance = (() => {
             ret: {
               "state": "let_the_game_begin",
               "access_token": msg.access_token,
-              is_first_move_my_move: maybe_room_id.is_first_move_my_move,
+              is_first_move_my_move: maybe_room_id.is_first_move_my_move[0 /* spring */],
               is_IA_down_for_me: maybe_room_id.is_IA_down_for_me
             }
           }
@@ -828,7 +828,13 @@ const random_entrance = (() => {
       waiting_list.delete(token);
       const room_id = open_a_room(token, newToken);
   
-      const is_first_turn_newToken_turn = Math.random() < 0.5;
+      const is_first_turn_newToken_turn: Tuple4<boolean> = [
+        Math.random() < 0.5,
+        Math.random() < 0.5,
+        Math.random() < 0.5,
+        Math.random() < 0.5,
+      ];
+
       const is_IA_down_for_newToken = Math.random() < 0.5;
   
       person_to_room.set(newToken, {
@@ -838,7 +844,7 @@ const random_entrance = (() => {
       });
       person_to_room.set(token, {
         room_id, 
-        is_first_move_my_move: !is_first_turn_newToken_turn,
+        is_first_move_my_move: is_first_turn_newToken_turn.map(a => !a) as Tuple4<boolean>,
         is_IA_down_for_me: !is_IA_down_for_newToken
       });
       room_to_gamestate.set(room_id, {
@@ -846,7 +852,7 @@ const random_entrance = (() => {
         season: 0,
         log2_rate: 0,
         IA_owner_s_score: 20,
-        is_IA_owner_s_turn: is_first_turn_newToken_turn === is_IA_down_for_newToken,
+        is_IA_owner_s_turn: is_first_turn_newToken_turn[0 /* spring */] === is_IA_down_for_newToken,
         f: {
           currentBoard: [
             [{ color: Color.Huok2, prof: Profession.Kua2, side: Side.NonIAOwner },
@@ -868,14 +874,14 @@ const random_entrance = (() => {
         moves_to_be_polled: [[], [], [], []]
       })
       console.log(`Opened a room ${room_id} to be used by ${newToken} and ${token}.`);
-      console.log(`${is_first_turn_newToken_turn ? newToken : token} moves first.`);
+      console.log(`${is_first_turn_newToken_turn[0 /* spring */] ? newToken : token} moves first.`);
       console.log(`IA is down, from the perspective of ${is_IA_down_for_newToken ? newToken : token}.`);
   
       // exit after finding the first person
       return {
         "state": "let_the_game_begin",
         "access_token": newToken,
-        is_first_move_my_move: is_first_turn_newToken_turn,
+        is_first_move_my_move: is_first_turn_newToken_turn[0 /* spring */],
         is_IA_down_for_me: is_IA_down_for_newToken
       };
     }
