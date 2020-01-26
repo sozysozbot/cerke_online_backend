@@ -281,6 +281,22 @@ function getLastMove(game_state) {
     }
     return arr[arr.length - 1];
 }
+function ifStepTamEditScore(game_state, step, room_info) {
+    if (getPiece(game_state, step) === "Tam2") {
+        if (room_info.is_IA_down_for_me) {
+            game_state.IA_owner_s_score += -5 * Math.pow(2, game_state.log2_rate);
+            if (game_state.IA_owner_s_score >= 40) {
+                console.log("the game has ended!"); // FIXME
+            }
+        }
+        else {
+            game_state.IA_owner_s_score -= -5 * Math.pow(2, game_state.log2_rate);
+            if (game_state.IA_owner_s_score < 0) {
+                console.log("the game has ended!"); // FIXME
+            }
+        }
+    }
+}
 function analyzeAfterHalfAcceptance(msg, room_info) {
     const game_state = room_to_gamestate.get(room_info.room_id);
     const { src, step } = game_state.waiting_for_after_half_acceptance;
@@ -295,6 +311,7 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
         obj.move.finalResult = {
             dest: src
         };
+        ifStepTamEditScore(game_state, step, room_info);
         // hasn't actually moved, so the water entry cannot fail
         return {
             legal: true,
@@ -321,6 +338,7 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
                 waterEntryHappened: false
             }
         };
+        ifStepTamEditScore(game_state, step, room_info);
         return ans;
     }
     if (isWater(msg.dest)) {
@@ -359,6 +377,7 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
                 ciurl: water_entry_ciurl
             }
         };
+        ifStepTamEditScore(game_state, step, room_info);
         return ans;
     }
     else {
@@ -379,6 +398,7 @@ function analyzeAfterHalfAcceptance(msg, room_info) {
                 waterEntryHappened: false
             }
         };
+        ifStepTamEditScore(game_state, step, room_info);
         return ans;
     }
 }
@@ -596,6 +616,7 @@ function analyzeMessage(message, room_info) {
                         return ans;
                     }
                     else if (msg.data.type === "SrcStepDstFinite") {
+                        ifStepTamEditScore(game_state, msg.data.step, room_info);
                         const ans = {
                             type: msg.data.type,
                             src: msg.data.src,
