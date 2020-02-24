@@ -1,25 +1,24 @@
-const uuidv4 = require('uuid/v4');
-const calculate_hands = require('./cerke_calculate_hands_core/calculate_hand.js')
+const calculate_hands = require("./lib/cerke_calculate_hands_core/calculate_hand");
+import uuidv4 from "uuid/v4";
 import express from 'express';
 import { Request, Response } from 'express';
 import path from 'path';
-import AbsoluteColumn = type__message.AbsoluteColumn;
-import AbsoluteCoord = type__message.AbsoluteCoord;
-import AbsoluteRow = type__message.AbsoluteRow;
-import NormalMove = type__message.NormalMove
-import NormalNonTamMove = type__message.NormalNonTamMove;
-import InfAfterStep = type__message.InfAfterStep;
-import AfterHalfAcceptance = type__message.AfterHalfAcceptance;
-import Ciurl = type__message.Ciurl;
-import Ret_InfAfterStep = type__message.Ret_InfAfterStep;
-import Ret_NormalMove = type__message.Ret_NormalMove;
-import Ret_AfterHalfAcceptance = type__message.Ret_AfterHalfAcceptance;
-import RandomEntry = type__message.Ret_RandomEntry;
-import Ret_RandomPoll = type__message.Ret_RandomPoll;
-import Ret_RandomCancel = type__message.Ret_RandomCancel;
-import SrcDst = type__message.SrcDst;
-import SrcStepDstFinite = type__message.SrcStepDstFinite;
-import MoveToBePolled = type__message.MoveToBePolled;
+import {
+  AbsoluteCoord,
+  NormalMove,
+  InfAfterStep,
+  AfterHalfAcceptance,
+  Ciurl,
+  Ret_InfAfterStep,
+  Ret_NormalMove,
+  Ret_AfterHalfAcceptance,
+  Ret_RandomEntry,
+  Ret_RandomPoll,
+  Ret_RandomCancel,
+  SrcDst,
+  SrcStepDstFinite,
+  MoveToBePolled
+} from "./lib/cerke_online_api/type__message";
 import * as t from "io-ts";
 import { pipe } from 'fp-ts/lib/pipeable'
 import { fold } from 'fp-ts/lib/Either'
@@ -874,7 +873,7 @@ const random_entrance = (() => {
     res.json(randomEntry());
   }
 
-  function randomEntry(): RandomEntry {
+  function randomEntry(): Ret_RandomEntry {
     const newToken: AccessToken = uuidv4() as AccessToken;
     for (let token of waiting_list) {
       waiting_list.delete(token);
@@ -1190,4 +1189,3 @@ function open_a_room(token1: AccessToken, token2: AccessToken): RoomId {
   // FIXME
   return uuidv4() as RoomId;
 }
-
