@@ -18,7 +18,8 @@ import {
   SrcDst,
   SrcStepDstFinite,
   MoveToBePolled,
-} from "./lib/cerke_online_api/type__message";
+} from "cerke_online_api";
+import { Hand, ObtainablePieces } from "cerke_hands_and_score";
 import * as t from "io-ts";
 import { pipe } from "fp-ts/lib/pipeable";
 import { fold } from "fp-ts/lib/Either";
