@@ -1,7 +1,7 @@
 {
-  "name": "node-js-getting-started",
-  "version": "0.3.0",
-  "description": "A sample Node.js app using Express 4",
+  "name": "cerke_online_backend",
+  "version": "1.0.0",
+  "description": "",
   "engines": {
     "node": "10.x"
   },
@@ -35,7 +35,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/heroku/node-js-getting-started"
+    "url": "git+https://gitlab.com/jekto.vatimeliju/cerke_online_backend.git"
   },
   "keywords": [
     "node",
