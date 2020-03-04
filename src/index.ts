@@ -1,4 +1,3 @@
-const calculate_hands = require("./lib/cerke_calculate_hands_core/calculate_hand");
 import uuidv4 from "uuid/v4";
 import express from "express";
 import { Request, Response } from "express";
@@ -19,7 +18,7 @@ import {
   SrcStepDstFinite,
   MoveToBePolled,
 } from "cerke_online_api";
-import { Hand, ObtainablePieces } from "cerke_hands_and_score";
+import { Hand, ObtainablePieces, calculate_hands_and_score_from_pieces } from "cerke_hands_and_score";
 import * as t from "io-ts";
 import { pipe } from "fp-ts/lib/pipeable";
 import { fold } from "fp-ts/lib/Either";
@@ -655,7 +654,7 @@ function calculateHandsAndScore(pieces: NonTam2Piece[]) {
     | {
         error: true;
         too_many: ObtainablePieces[];
-      } = calculate_hands.calculate_hands_and_score_from_pieces(hop1zuo1);
+      } = calculate_hands_and_score_from_pieces(hop1zuo1);
   if (res.error === true) {
     throw new Error(`should not happen: too many of ${res.too_many.join(",")}`);
   }
