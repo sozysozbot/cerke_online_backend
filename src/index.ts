@@ -24,6 +24,19 @@ import * as t from "io-ts";
 import { pipe } from "fp-ts/lib/pipeable";
 import { fold } from "fp-ts/lib/Either";
 
+// For the notifier. I don't think it should live in index.ts, but for now let's just do it
+import Discord from "discord.js";
+const client = new Discord.Client();
+client.once('ready', () => {
+  (client.channels.cache.get('716511640190713921')! as Discord.TextChannel).send('cerke online discord notifier is Ready!')
+});
+
+client.login(process.env.DISCORD_NOTIFIER_TOKEN);
+
+const publicly_announce = (msg: string) => {
+  (client.channels.cache.get('716511640190713921')! as Discord.TextChannel).send(msg)
+};
+
 enum Color {
   Kok1, // Red, 赤
   Huok2, // Black, 黒
@@ -236,8 +249,6 @@ const pool = new Pool({
 });
 
 const sha256 = (str: string) => crypto.createHash('sha256').update(str, 'utf8').digest('hex');
-
-const publicly_announce = (msg: string) => {};
 
 const { getPiece, setPiece } = (() => {
   function fromAbsoluteCoord_([absrow, abscol]: AbsoluteCoord): [
