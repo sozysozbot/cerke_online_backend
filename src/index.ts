@@ -2,6 +2,7 @@ import uuidv4 from "uuid/v4";
 import express from "express";
 import { Request, Response } from "express";
 import path from "path";
+import crypto from "crypto"
 import {
   AbsoluteCoord,
   NormalMove,
@@ -233,6 +234,10 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: true,
 });
+
+const sha256 = (str: string) => crypto.createHash('sha256').update(str, 'utf8').digest('hex');
+
+const publicly_announce = (msg: string) => {};
 
 const { getPiece, setPiece } = (() => {
   function fromAbsoluteCoord_([absrow, abscol]: AbsoluteCoord): [
@@ -1120,6 +1125,7 @@ const random_entrance = (() => {
             // not yet assigned a room, but is in the waiting list
             waiting_list.delete(access_token);
             console.log(`Canceled ${access_token}.`);
+            publicly_announce(`Canceled ${sha256(access_token)}.`);
             return {
               legal: true,
               cancellable: true,
@@ -1377,14 +1383,29 @@ const random_entrance = (() => {
       console.log(
         `Opened a room ${room_id} to be used by ${newToken} and ${token}.`,
       );
+      publicly_announce(
+        `Opened a room ${sha256(room_id)} to be used by ${sha256(newToken)} and ${sha256(token)}.`,
+      );
+
       console.log(
         `${
           is_first_turn_newToken_turn[0 /* spring */] ? newToken : token
         } moves first.`,
       );
+      publicly_announce(
+        `${
+          is_first_turn_newToken_turn[0 /* spring */] ? sha256(newToken) : sha256(token)
+        } moves first.`,
+      );
+
       console.log(
         `IA is down, from the perspective of ${
           is_IA_down_for_newToken ? newToken : token
+        }.`,
+      );
+      publicly_announce(
+        `IA is down, from the perspective of ${
+          is_IA_down_for_newToken ? sha256(newToken) : sha256(token)
         }.`,
       );
 
@@ -1401,6 +1422,9 @@ const random_entrance = (() => {
     waiting_list.add(newToken);
     console.log(
       `Cannot find a partner for ${newToken}, who will thus be put in the waiting list.`,
+    );
+    publicly_announce(
+      `Cannot find a partner for ${sha256(newToken)}, who will thus be put in the waiting list.`,
     );
     return {
       state: "in_waiting_list",
@@ -1733,6 +1757,7 @@ var room_to_gamestate = new Map<RoomId, GameState>();
 
 function open_a_room(token1: AccessToken, token2: AccessToken): RoomId {
   console.log("A match between", token1, "and", token2, "will begin.");
+  publicly_announce(`A match between ${sha256(token1)} and ${sha256(token2)} will begin.`)
 
   // FIXME
   return uuidv4() as RoomId;
