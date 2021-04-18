@@ -1140,7 +1140,8 @@ const random_entrance = (() => {
             // not yet assigned a room, but is in the waiting list
             waiting_list.delete(access_token);
             console.log(`Canceled ${access_token}.`);
-            publicly_announce(`Canceled ${sha256_first7(access_token)}.`);
+            publicly_announce(`Canceled ${sha256_first7(access_token)}. 
+            The current waiting list is ${Array.from(waiting_list.values(), sha256_first7).join(", ")}`);
             return {
               legal: true,
               cancellable: true,
@@ -1166,6 +1167,7 @@ const random_entrance = (() => {
     const newToken: AccessToken = uuidv4() as AccessToken;
     for (let token of waiting_list) {
       waiting_list.delete(token);
+      publicly_announce(`The current waiting list is ${Array.from(waiting_list.values(), sha256_first7).join(", ")}`);
       const room_id = open_a_room(token, newToken);
 
       const is_first_turn_newToken_turn: Tuple4<boolean> = [
@@ -1439,7 +1441,8 @@ const random_entrance = (() => {
       `Cannot find a partner for ${newToken}, who will thus be put in the waiting list.`,
     );
     publicly_announce(
-      `Cannot find a partner for ${sha256_first7(newToken)}, who will thus be put in the waiting list.`,
+      `Cannot find a partner for ${sha256_first7(newToken)}, who will thus be put in the waiting list.
+      The current waiting list is ${Array.from(waiting_list.values(), sha256_first7).join(", ")}`,
     );
     return {
       state: "in_waiting_list",
