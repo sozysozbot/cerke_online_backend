@@ -1061,6 +1061,10 @@ const random_entrance = (() => {
   const RandomEntrancePollVerifier = t.strict({
     access_token: t.string,
   });
+
+  const RandomEntranceCancelVerifier = t.strict({
+    access_token: t.string,
+  });
   function random_entrance_poll(req: Request, res: Response) {
     const onLeft = (errors: t.Errors): Ret_RandomPoll => ({
       legal: false,
@@ -1112,7 +1116,7 @@ const random_entrance = (() => {
   }
 
   function random_entrance_cancel(req: Request, res: Response) {
-    publicly_announce(`DEBUG!!!!! received the following at /cancel: ${JSON.stringify(req)}`)
+    publicly_announce(`DEBUG!!!!! received the following at /cancel: ${JSON.stringify(req.body)}`)
     const onLeft = (errors: t.Errors): Ret_RandomCancel => ({
       legal: false,
       whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
@@ -1120,7 +1124,7 @@ const random_entrance = (() => {
 
     return res.json(
       pipe(
-        RandomEntrancePollVerifier.decode(req.body),
+        RandomEntranceCancelVerifier.decode(req.body),
         fold(onLeft, function(msg: { access_token: string }): Ret_RandomCancel {
           const access_token = msg.access_token as AccessToken;
           const maybe_room_id:
