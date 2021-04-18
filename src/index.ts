@@ -1112,6 +1112,7 @@ const random_entrance = (() => {
   }
 
   function random_entrance_cancel(req: Request, res: Response) {
+    publicly_announce(`DEBUG!!!!! received the following at /cancel: ${JSON.stringify(req)}`)
     const onLeft = (errors: t.Errors): Ret_RandomCancel => ({
       legal: false,
       whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
