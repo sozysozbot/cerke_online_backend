@@ -21,8 +21,8 @@ import {
 } from "cerke_online_api";
 type Ret_VsCpuEntry = {
   "state": "let_the_game_begin";
-  "access_token": string; 
-  "is_first_move_my_move": boolean; 
+  "access_token": string;
+  "is_first_move_my_move": boolean;
   "is_IA_down_for_me": boolean;
 }
 import { Hand, ObtainablePieces, calculate_hands_and_score_from_pieces } from "cerke_hands_and_score";
@@ -484,7 +484,7 @@ function ifStepTamEditScore(
   }
 }
 
-function analyzeAfterHalfAcceptance(
+function analyzeAfterHalfAcceptanceAndUpdate(
   msg: AfterHalfAcceptance,
   room_info: RoomInfoWithPerspective,
 ): Ret_AfterHalfAcceptance {
@@ -632,7 +632,7 @@ function analyzeAfterHalfAcceptance(
   }
 }
 
-function analyzeInfAfterStep(
+function analyzeInfAfterStepAndUpdate(
   msg: InfAfterStep,
   room_info: RoomInfoWithPerspective,
 ): Ret_InfAfterStep {
@@ -836,18 +836,233 @@ type Ret_MainPoll =
   | { legal: false; whyIllegal: string };
 
 function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
-  const game_state = room_to_gamestate.get(room_info.room_id)!;
-  const dat = getLastMove(game_state);
-  if (typeof dat === "undefined") {
-    return { legal: true, content: "not yet" };
+  // If it is not a bot, then all I need to do is to
+  // check whether another player has played.
+  if (!room_to_bot.get(room_info.room_id)) {
+    const game_state = room_to_gamestate.get(room_info.room_id)!;
+    const dat = getLastMove(game_state);
+    if (typeof dat === "undefined") {
+      return { legal: true, content: "not yet" };
+    }
+    if (room_info.is_IA_down_for_me === dat.byIAOwner) {
+      return { legal: true, content: "not yet" };
+    }
+    return { legal: true, content: dat.move };
   }
-  if (room_info.is_IA_down_for_me === dat.byIAOwner) {
-    return { legal: true, content: "not yet" };
-  }
-  return { legal: true, content: dat.move };
+
+  // If not, the player is playing against a bot.
+  // Thus the reply should always be that the bot has played.
+  // Hence, here I should:
+  // 1. Generate the bot's move on the fly
+  // 2. Update the `game_state` depending on the move just generated
+  // 3. Send back the move I just made
+  throw new Error("not yet implemented!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 }
 
-function analyzeMessage(
+function analyzeValidMessageAndUpdate(
+  msg: InfAfterStep | AfterHalfAcceptance | NormalMove,
+  room_info: RoomInfoWithPerspective,
+): Ret_InfAfterStep | Ret_AfterHalfAcceptance | Ret_NormalMove {
+  const game_state = room_to_gamestate.get(room_info.room_id)!;
+  if (msg.type === "InfAfterStep") {
+    /* InfAfterStep */
+    return analyzeInfAfterStepAndUpdate(msg, room_info);
+  } else if (msg.type === "AfterHalfAcceptance") {
+    return analyzeAfterHalfAcceptanceAndUpdate(msg, room_info);
+  } else if (msg.type === "NonTamMove") {
+    if (msg.data.type === "FromHand") {
+      if (room_info.is_IA_down_for_me) {
+        const removed = removeFromHop1Zuo1OfIAOwner(
+          game_state,
+          msg.data.color,
+          msg.data.prof,
+        );
+        const maybe_taken = setPiece(game_state, msg.data.dest, removed);
+        if (maybe_taken != null) {
+          throw new Error(
+            "should not happen: already occupied and cannot be placed from hop1 zuo1",
+          );
+        }
+      } else {
+        const removed = removeFromHop1Zuo1OfNonIAOwner(
+          game_state,
+          msg.data.color,
+          msg.data.prof,
+        );
+        const maybe_taken = setPiece(game_state, msg.data.dest, removed);
+        if (maybe_taken != null) {
+          throw new Error(
+            "should not happen: already occupied and cannot be placed from hop1 zuo1",
+          );
+        }
+      }
+
+      game_state.moves_to_be_polled[game_state.season].push({
+        byIAOwner: room_info.is_IA_down_for_me,
+        move: {
+          type: "NonTamMove",
+          data: msg.data,
+        },
+        status: null, // never completes a new hand
+      });
+
+      // never fails
+      return {
+        legal: true,
+        dat: {
+          waterEntryHappened: false,
+        },
+      };
+    }
+
+    const piece = getPiece(game_state, msg.data.src)!;
+
+    if (
+      isWater(msg.data.src) ||
+      (piece !== "Tam2" && piece.prof === Profession.Nuak1)
+    ) {
+      const {
+        hand_is_made,
+      } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
+        game_state,
+        msg.data.src,
+        msg.data.dest,
+        room_info.is_IA_down_for_me,
+      );
+      game_state.moves_to_be_polled[game_state.season].push({
+        byIAOwner: room_info.is_IA_down_for_me,
+        move: {
+          type: "NonTamMove",
+          data: msg.data,
+        },
+        status: hand_is_made ? "not yet" : null,
+      });
+      // never fails
+      return {
+        legal: true,
+        dat: {
+          waterEntryHappened: false,
+        },
+      };
+    }
+
+    if (isWater(msg.data.dest)) {
+      const ciurl: Ciurl = [
+        Math.random() < 0.5,
+        Math.random() < 0.5,
+        Math.random() < 0.5,
+        Math.random() < 0.5,
+        Math.random() < 0.5,
+      ];
+
+      const data: SrcDst | SrcStepDstFinite = (() => {
+        if (msg.data.type === "SrcDst") {
+          const ans: SrcDst = {
+            type: msg.data.type,
+            src: msg.data.src,
+            dest: msg.data.dest,
+            water_entry_ciurl: ciurl,
+          };
+          return ans;
+        } else if (msg.data.type === "SrcStepDstFinite") {
+          ifStepTamEditScore(game_state, msg.data.step, room_info);
+          const ans: SrcStepDstFinite = {
+            type: msg.data.type,
+            src: msg.data.src,
+            step: msg.data.step,
+            dest: msg.data.dest,
+            water_entry_ciurl: ciurl,
+          };
+          return ans;
+        } else {
+          const _should_not_reach_here: never = msg.data;
+          throw new Error("should not happen");
+        }
+      })();
+
+      if (ciurl.filter(a => a).length >= 3) {
+        const {
+          hand_is_made,
+        } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
+          game_state,
+          msg.data.src,
+          msg.data.dest,
+          room_info.is_IA_down_for_me,
+        );
+        game_state.moves_to_be_polled[game_state.season].push({
+          byIAOwner: room_info.is_IA_down_for_me,
+          move: { type: "NonTamMove", data },
+          status: hand_is_made ? "not yet" : null,
+        });
+      } else {
+        game_state.moves_to_be_polled[game_state.season].push({
+          byIAOwner: room_info.is_IA_down_for_me,
+          move: { type: "NonTamMove", data },
+          status: null, // never completes a move
+        });
+      }
+
+      const ans: Ret_NormalMove = {
+        legal: true,
+        dat: {
+          waterEntryHappened: true,
+          ciurl,
+        },
+      };
+      return ans;
+    } else {
+      const {
+        hand_is_made,
+      } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
+        game_state,
+        msg.data.src,
+        msg.data.dest,
+        room_info.is_IA_down_for_me,
+      );
+
+      game_state.moves_to_be_polled[game_state.season].push({
+        byIAOwner: room_info.is_IA_down_for_me,
+        move: {
+          type: "NonTamMove",
+          data: msg.data,
+        },
+        status: hand_is_made ? "not yet" : null,
+      });
+
+      const ans: Ret_NormalMove = {
+        legal: true,
+        dat: {
+          waterEntryHappened: false,
+        },
+      };
+      return ans;
+    }
+  } else if (msg.type === "TamMove") {
+    setPiece(game_state, msg.src, null);
+    setPiece(game_state, msg.secondDest, "Tam2");
+    // tam2 can't take
+
+    game_state.moves_to_be_polled[game_state.season].push({
+      byIAOwner: room_info.is_IA_down_for_me,
+      move: msg,
+      status: null, // never completes a hand
+    });
+
+    // Tam2 never fails water entry
+    const ans: Ret_NormalMove = {
+      legal: true,
+      dat: {
+        waterEntryHappened: false,
+      },
+    };
+    return ans;
+  } else {
+    let _should_not_reach_here: never = msg;
+    throw new Error("should not reach here");
+  }
+}
+
+function analyzeMessageAndUpdate(
   message: object,
   room_info: RoomInfoWithPerspective,
 ): Ret_InfAfterStep | Ret_AfterHalfAcceptance | Ret_NormalMove {
@@ -860,207 +1075,8 @@ function analyzeMessage(
 
   return pipe(
     Verifier.decode(message),
-    fold(onLeft, function (
-      msg: InfAfterStep | AfterHalfAcceptance | NormalMove,
-    ) {
-      const game_state = room_to_gamestate.get(room_info.room_id)!;
-      if (msg.type === "InfAfterStep") {
-        /* InfAfterStep */
-        return analyzeInfAfterStep(msg, room_info);
-      } else if (msg.type === "AfterHalfAcceptance") {
-        return analyzeAfterHalfAcceptance(msg, room_info);
-      } else if (msg.type === "NonTamMove") {
-        if (msg.data.type === "FromHand") {
-          if (room_info.is_IA_down_for_me) {
-            const removed = removeFromHop1Zuo1OfIAOwner(
-              game_state,
-              msg.data.color,
-              msg.data.prof,
-            );
-            const maybe_taken = setPiece(game_state, msg.data.dest, removed);
-            if (maybe_taken != null) {
-              throw new Error(
-                "should not happen: already occupied and cannot be placed from hop1 zuo1",
-              );
-            }
-          } else {
-            const removed = removeFromHop1Zuo1OfNonIAOwner(
-              game_state,
-              msg.data.color,
-              msg.data.prof,
-            );
-            const maybe_taken = setPiece(game_state, msg.data.dest, removed);
-            if (maybe_taken != null) {
-              throw new Error(
-                "should not happen: already occupied and cannot be placed from hop1 zuo1",
-              );
-            }
-          }
-
-          game_state.moves_to_be_polled[game_state.season].push({
-            byIAOwner: room_info.is_IA_down_for_me,
-            move: {
-              type: "NonTamMove",
-              data: msg.data,
-            },
-            status: null, // never completes a new hand
-          });
-
-          // never fails
-          return {
-            legal: true,
-            dat: {
-              waterEntryHappened: false,
-            },
-          };
-        }
-
-        const piece = getPiece(game_state, msg.data.src)!;
-
-        if (
-          isWater(msg.data.src) ||
-          (piece !== "Tam2" && piece.prof === Profession.Nuak1)
-        ) {
-          const {
-            hand_is_made,
-          } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
-            game_state,
-            msg.data.src,
-            msg.data.dest,
-            room_info.is_IA_down_for_me,
-          );
-          game_state.moves_to_be_polled[game_state.season].push({
-            byIAOwner: room_info.is_IA_down_for_me,
-            move: {
-              type: "NonTamMove",
-              data: msg.data,
-            },
-            status: hand_is_made ? "not yet" : null,
-          });
-          // never fails
-          return {
-            legal: true,
-            dat: {
-              waterEntryHappened: false,
-            },
-          };
-        }
-
-        if (isWater(msg.data.dest)) {
-          const ciurl: Ciurl = [
-            Math.random() < 0.5,
-            Math.random() < 0.5,
-            Math.random() < 0.5,
-            Math.random() < 0.5,
-            Math.random() < 0.5,
-          ];
-
-          const data: SrcDst | SrcStepDstFinite = (() => {
-            if (msg.data.type === "SrcDst") {
-              const ans: SrcDst = {
-                type: msg.data.type,
-                src: msg.data.src,
-                dest: msg.data.dest,
-                water_entry_ciurl: ciurl,
-              };
-              return ans;
-            } else if (msg.data.type === "SrcStepDstFinite") {
-              ifStepTamEditScore(game_state, msg.data.step, room_info);
-              const ans: SrcStepDstFinite = {
-                type: msg.data.type,
-                src: msg.data.src,
-                step: msg.data.step,
-                dest: msg.data.dest,
-                water_entry_ciurl: ciurl,
-              };
-              return ans;
-            } else {
-              const _should_not_reach_here: never = msg.data;
-              throw new Error("should not happen");
-            }
-          })();
-
-          if (ciurl.filter(a => a).length >= 3) {
-            const {
-              hand_is_made,
-            } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
-              game_state,
-              msg.data.src,
-              msg.data.dest,
-              room_info.is_IA_down_for_me,
-            );
-            game_state.moves_to_be_polled[game_state.season].push({
-              byIAOwner: room_info.is_IA_down_for_me,
-              move: { type: "NonTamMove", data },
-              status: hand_is_made ? "not yet" : null,
-            });
-          } else {
-            game_state.moves_to_be_polled[game_state.season].push({
-              byIAOwner: room_info.is_IA_down_for_me,
-              move: { type: "NonTamMove", data },
-              status: null, // never completes a move
-            });
-          }
-
-          const ans: Ret_NormalMove = {
-            legal: true,
-            dat: {
-              waterEntryHappened: true,
-              ciurl,
-            },
-          };
-          return ans;
-        } else {
-          const {
-            hand_is_made,
-          } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
-            game_state,
-            msg.data.src,
-            msg.data.dest,
-            room_info.is_IA_down_for_me,
-          );
-
-          game_state.moves_to_be_polled[game_state.season].push({
-            byIAOwner: room_info.is_IA_down_for_me,
-            move: {
-              type: "NonTamMove",
-              data: msg.data,
-            },
-            status: hand_is_made ? "not yet" : null,
-          });
-
-          const ans: Ret_NormalMove = {
-            legal: true,
-            dat: {
-              waterEntryHappened: false,
-            },
-          };
-          return ans;
-        }
-      } else if (msg.type === "TamMove") {
-        setPiece(game_state, msg.src, null);
-        setPiece(game_state, msg.secondDest, "Tam2");
-        // tam2 can't take
-
-        game_state.moves_to_be_polled[game_state.season].push({
-          byIAOwner: room_info.is_IA_down_for_me,
-          move: msg,
-          status: null, // never completes a hand
-        });
-
-        // Tam2 never fails water entry
-        const ans: Ret_NormalMove = {
-          legal: true,
-          dat: {
-            waterEntryHappened: false,
-          },
-        };
-        return ans;
-      } else {
-        let _should_not_reach_here: never = msg;
-        throw new Error("should not reach here");
-      }
-    }),
+    fold(onLeft, msg => analyzeValidMessageAndUpdate(msg, room_info)
+    ),
   );
 }
 
@@ -1150,6 +1166,7 @@ const vs_cpu_entrance = (() => {
       ) as Tuple4<boolean>,
       is_IA_down_for_me: !is_IA_down_for_newToken,
     });
+    room_to_bot.set(room_id, bot_token);
     room_to_gamestate.set(room_id, {
       tam_itself_is_tam_hue: true,
       season: 0,
@@ -2104,12 +2121,13 @@ function main(req: Request, res: Response) {
     return;
   }
 
-  res.json(analyzeMessage(message, maybe_room_info));
+  res.json(analyzeMessageAndUpdate(message, maybe_room_info));
 }
 
 var waiting_list = new Set<AccessToken>();
 var person_to_room = new Map<AccessToken, RoomInfoWithPerspective>();
 var bot_to_room = new Map<BotToken, RoomInfoWithPerspective>();
+var room_to_bot = new Map<RoomId, BotToken>();
 var room_to_gamestate = new Map<RoomId, GameState>();
 
 function open_a_room(token1: AccessToken, token2: AccessToken): RoomId {
