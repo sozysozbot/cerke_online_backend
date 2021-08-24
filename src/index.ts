@@ -317,7 +317,7 @@ const { getPiece, setPiece } = (() => {
     }
   }
 
-  function getPiece(game_state: GameState, coord: AbsoluteCoord) {
+  function getPiece(game_state: Readonly<GameState>, coord: AbsoluteCoord) {
     const [i, j] = fromAbsoluteCoord_(coord);
     return game_state.f.currentBoard[i][j];
   }
@@ -326,7 +326,7 @@ const { getPiece, setPiece } = (() => {
     game_state: GameState,
     coord: AbsoluteCoord,
     piece: Piece | null,
-  ) {
+  ): Piece | null {
     const [i, j] = fromAbsoluteCoord_(coord);
     const originally_occupied_by = game_state.f.currentBoard[i][j];
     game_state.f.currentBoard[i][j] = piece;
@@ -456,7 +456,7 @@ function isInfAfterStep(a: {
   }
 }
 
-function getLastMove(game_state: GameState) {
+function getLastMove(game_state: Readonly<GameState>) {
   const arr = game_state.moves_to_be_polled[game_state.season];
   if (arr.length === 0) {
     return undefined;
@@ -836,27 +836,76 @@ type Ret_MainPoll =
   | { legal: false; whyIllegal: string };
 
 function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
-  // If it is not a bot, then all I need to do is to
-  // check whether another player has played.
-  if (!room_to_bot.get(room_info.room_id)) {
-    const game_state = room_to_gamestate.get(room_info.room_id)!;
-    const dat = getLastMove(game_state);
-    if (typeof dat === "undefined") {
-      return { legal: true, content: "not yet" };
-    }
-    if (room_info.is_IA_down_for_me === dat.byIAOwner) {
-      return { legal: true, content: "not yet" };
-    }
-    return { legal: true, content: dat.move };
+  const game_state = room_to_gamestate.get(room_info.room_id)!;
+  const mov = getLastMove(game_state);
+
+  // If the last move is not played by the player, just return what we have.
+  if (typeof mov !== "undefined" && room_info.is_IA_down_for_me !== mov.byIAOwner) {
+    return { legal: true, content: mov.move };
   }
 
-  // If not, the player is playing against a bot.
-  // Thus the reply should always be that the bot has played.
+  // If the player is not playing against a bot, then I simply say "not yet".
+  if (!room_to_bot.get(room_info.room_id)) {
+    return { legal: true, content: "not yet" };
+  }
+
+  // If the player *is* playing against a bot,
+  // then the reply should always be that the bot has played.
   // Hence, here I should:
+
   // 1. Generate the bot's move on the fly
-  // 2. Update the `game_state` depending on the move just generated
+  const bot_move = generateBotMove(game_state);
+
+  // 2. Update the `game_state` depending on the move I just generated.
+  // To do this without duplicating the code, I just have to play one move in the bot's perspective.
+  analyzeValidMessageAndUpdate(bot_move, {
+    room_id: room_info.room_id,
+    is_first_move_my_move: room_info.is_first_move_my_move.map(
+      a => !a,
+    ) as Tuple4<boolean>,
+    is_IA_down_for_me: !room_info.is_IA_down_for_me,
+  })
+
   // 3. Send back the move I just made
-  throw new Error("not yet implemented!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+  const mov2 = getLastMove(game_state);
+  if (typeof mov2 === "undefined") { throw new Error("Although the bot is supposed to have played something, I cannot locate it") }
+  return { legal: true, content: mov2.move };
+}
+
+type BotMove = NormalMove /* FIXME: a pair [InfAfterStep, After HalfAcceptance] should also work */;
+
+function generateBotMove(game_state: Readonly<GameState>): BotMove {
+  const all_coords: AbsoluteCoord[] = [
+    ["A", "K"], ["A", "L"], ["A", "N"], ["A", "T"], ["A", "Z"], ["A", "X"], ["A", "C"], ["A", "M"], ["A", "P"],
+    ["E", "K"], ["E", "L"], ["E", "N"], ["E", "T"], ["E", "Z"], ["E", "X"], ["E", "C"], ["E", "M"], ["E", "P"],
+    ["I", "K"], ["I", "L"], ["I", "N"], ["I", "T"], ["I", "Z"], ["I", "X"], ["I", "C"], ["I", "M"], ["I", "P"],
+    ["U", "K"], ["U", "L"], ["U", "N"], ["U", "T"], ["U", "Z"], ["U", "X"], ["U", "C"], ["U", "M"], ["U", "P"],
+    ["O", "K"], ["O", "L"], ["O", "N"], ["O", "T"], ["O", "Z"], ["O", "X"], ["O", "C"], ["O", "M"], ["O", "P"],
+    ["Y", "K"], ["Y", "L"], ["Y", "N"], ["Y", "T"], ["Y", "Z"], ["Y", "X"], ["Y", "C"], ["Y", "M"], ["Y", "P"],
+    ["AI", "K"], ["AI", "L"], ["AI", "N"], ["AI", "T"], ["AI", "Z"], ["AI", "X"], ["AI", "C"], ["AI", "M"], ["AI", "P"],
+    ["AU", "K"], ["AU", "L"], ["AU", "N"], ["AU", "T"], ["AU", "Z"], ["AU", "X"], ["AU", "C"], ["AU", "M"], ["AU", "P"],
+    ["IA", "K"], ["IA", "L"], ["IA", "N"], ["IA", "T"], ["IA", "Z"], ["IA", "X"], ["IA", "C"], ["IA", "M"], ["IA", "P"],
+  ];
+
+  const [tam_position] = all_coords.filter(coord => getPiece(game_state, coord) === "Tam2");
+
+  if (tam_position[0] === "O" && tam_position[1] === "Z") {
+    return {
+      type: "TamMove",
+      stepStyle: "NoStep",
+      src: tam_position,
+      firstDest: ["O", "T"],
+      secondDest: ["O", "N"],
+    }
+  } else if (tam_position[0] === "O" && tam_position[1] === "N") {
+    return {
+      type: "TamMove",
+      stepStyle: "NoStep",
+      src: tam_position,
+      firstDest: ["O", "T"],
+      secondDest: ["O", "Z"],
+    }
+  } else throw new Error("the bot cannot handle this tam position")
 }
 
 function analyzeValidMessageAndUpdate(
