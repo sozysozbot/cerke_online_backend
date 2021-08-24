@@ -15,7 +15,7 @@
   "dependencies": {
     "body-parser": "^1.19.0",
     "cerke_hands_and_score": "^1.0.1",
-    "cerke_online_api": "^1.0.0",
+    "cerke_online_api": "1.0.0",
     "cool-ascii-faces": "^1.3.4",
     "discord.js": "^12.5.3",
     "ejs": "^2.5.6",

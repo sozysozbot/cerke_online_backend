@@ -19,6 +19,12 @@ import {
   SrcStepDstFinite,
   MoveToBePolled,
 } from "cerke_online_api";
+type Ret_VsCpuEntry = {
+  "state": "let_the_game_begin";
+  "access_token": string; 
+  "is_first_move_my_move": boolean; 
+  "is_IA_down_for_me": boolean;
+}
 import { Hand, ObtainablePieces, calculate_hands_and_score_from_pieces } from "cerke_hands_and_score";
 import * as t from "io-ts";
 import { pipe } from "fp-ts/lib/pipeable";
@@ -1117,7 +1123,7 @@ const vs_cpu_entrance = (() => {
     res.json(vsCpuEntry());
   }
 
-  function vsCpuEntry(): { "state": "let_the_game_begin"; "access_token": string; "is_first_move_my_move": boolean; "is_IA_down_for_me": boolean; } {
+  function vsCpuEntry(): Ret_VsCpuEntry {
     const newToken: AccessToken = uuidv4() as AccessToken;
     const bot_token: BotToken = uuidv4() as BotToken;
 
