@@ -57,6 +57,7 @@ enum Profession {
 
 type RoomId = string & { __RoomIdBrand: never };
 type AccessToken = string & { __AccessTokenBrand: never };
+type BotToken = string & { __BotTokenBrand: never };
 
 type RoomInfoWithPerspective = {
   room_id: RoomId;
@@ -668,9 +669,9 @@ function calculateHandsAndScore(pieces: NonTam2Piece[]) {
   const res:
     | { error: false; score: number; hands: Hand[] }
     | {
-        error: true;
-        too_many: ObtainablePieces[];
-      } = calculate_hands_and_score_from_pieces(hop1zuo1);
+      error: true;
+      too_many: ObtainablePieces[];
+    } = calculate_hands_and_score_from_pieces(hop1zuo1);
   if (res.error === true) {
     throw new Error(`should not happen: too many of ${res.too_many.join(",")}`);
   }
@@ -744,12 +745,12 @@ function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
 
 type Ret_WhetherTyMokPoll =
   | {
-      legal: true;
-      content:
-        | "ty mok1"
-        | { is_first_move_my_move: boolean | null }
-        | "not yet";
-    }
+    legal: true;
+    content:
+    | "ty mok1"
+    | { is_first_move_my_move: boolean | null }
+    | "not yet";
+  }
   | { legal: false; whyIllegal: string };
 
 function replyToWhetherTyMokPoll(
@@ -853,7 +854,7 @@ function analyzeMessage(
 
   return pipe(
     Verifier.decode(message),
-    fold(onLeft, function(
+    fold(onLeft, function (
       msg: InfAfterStep | AfterHalfAcceptance | NormalMove,
     ) {
       const game_state = room_to_gamestate.get(room_info.room_id)!;
@@ -1057,6 +1058,339 @@ function analyzeMessage(
   );
 }
 
+const vs_cpu_entrance = (() => {
+  const VsCpuEntrancePollVerifier = t.strict({
+    access_token: t.string,
+  });
+
+  function vs_cpu_entrance_poll(req: Request, res: Response) {
+    const onLeft = (errors: t.Errors): Ret_RandomPoll => ({
+      legal: false,
+      whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
+    });
+
+    return res.json(
+      pipe(
+        VsCpuEntrancePollVerifier.decode(req.body),
+        fold(onLeft, function (msg: { access_token: string }): Ret_RandomPoll {
+          const access_token = msg.access_token as AccessToken;
+          const maybe_room_id:
+            | RoomInfoWithPerspective
+            | undefined = person_to_room.get(access_token);
+          if (typeof maybe_room_id !== "undefined") {
+            return {
+              legal: true,
+              ret: {
+                state: "let_the_game_begin",
+                access_token: msg.access_token,
+                is_first_move_my_move:
+                  maybe_room_id.is_first_move_my_move[0 /* spring */],
+                is_IA_down_for_me: maybe_room_id.is_IA_down_for_me,
+              },
+            };
+          } else if (waiting_list.has(access_token)) {
+            // not yet assigned a room, but is in the waiting list
+            return {
+              legal: true,
+              ret: {
+                state: "in_waiting_list",
+                access_token: msg.access_token,
+              },
+            };
+          } else {
+            // You sent me a poll, but  I don't know you. Hmm...
+            return {
+              legal: false,
+              whyIllegal: `Invalid access token: 
+            I don't know your access token, which is ${access_token}.
+            Please reapply by sending an empty object to random/entry .`,
+            };
+
+            // FIXME: in the future, I might let you reapply. This will of course change your UUID.
+          }
+        }),
+      ),
+    );
+  }
+
+  function vs_cpu_entrance_entrance(_req: Request, res: Response) {
+    res.json(vsCpuEntry());
+  }
+
+  function vsCpuEntry(): { "state": "let_the_game_begin"; "access_token": string; "is_first_move_my_move": boolean; "is_IA_down_for_me": boolean; } {
+    const newToken: AccessToken = uuidv4() as AccessToken;
+    const bot_token: BotToken = uuidv4() as BotToken;
+
+    const room_id = open_a_room_against_bot(bot_token, newToken);
+
+    const is_first_turn_newToken_turn: Tuple4<boolean> = [
+      Math.random() < 0.5,
+      Math.random() < 0.5,
+      Math.random() < 0.5,
+      Math.random() < 0.5,
+    ];
+
+    const is_IA_down_for_newToken = Math.random() < 0.5;
+
+    person_to_room.set(newToken, {
+      room_id,
+      is_first_move_my_move: is_first_turn_newToken_turn,
+      is_IA_down_for_me: is_IA_down_for_newToken,
+    });
+    bot_to_room.set(bot_token, {
+      room_id,
+      is_first_move_my_move: is_first_turn_newToken_turn.map(
+        a => !a,
+      ) as Tuple4<boolean>,
+      is_IA_down_for_me: !is_IA_down_for_newToken,
+    });
+    room_to_gamestate.set(room_id, {
+      tam_itself_is_tam_hue: true,
+      season: 0,
+      log2_rate: 0,
+      IA_owner_s_score: 20,
+      is_IA_owner_s_turn:
+        is_first_turn_newToken_turn[0 /* spring */] ===
+        is_IA_down_for_newToken,
+      f: {
+        currentBoard: [
+          [
+            {
+              color: Color.Huok2,
+              prof: Profession.Kua2,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Huok2,
+              prof: Profession.Maun1,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Huok2,
+              prof: Profession.Kaun1,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Huok2,
+              prof: Profession.Uai1,
+              side: Side.NonIAOwner,
+            },
+            { color: Color.Kok1, prof: Profession.Io, side: Side.NonIAOwner },
+            {
+              color: Color.Kok1,
+              prof: Profession.Uai1,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Kok1,
+              prof: Profession.Kaun1,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Kok1,
+              prof: Profession.Maun1,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Kok1,
+              prof: Profession.Kua2,
+              side: Side.NonIAOwner,
+            },
+          ],
+          [
+            {
+              color: Color.Kok1,
+              prof: Profession.Tuk2,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Kok1,
+              prof: Profession.Gua2,
+              side: Side.NonIAOwner,
+            },
+            null,
+            {
+              color: Color.Kok1,
+              prof: Profession.Dau2,
+              side: Side.NonIAOwner,
+            },
+            null,
+            {
+              color: Color.Huok2,
+              prof: Profession.Dau2,
+              side: Side.NonIAOwner,
+            },
+            null,
+            {
+              color: Color.Huok2,
+              prof: Profession.Gua2,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Huok2,
+              prof: Profession.Tuk2,
+              side: Side.NonIAOwner,
+            },
+          ],
+          [
+            {
+              color: Color.Huok2,
+              prof: Profession.Kauk2,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Kok1,
+              prof: Profession.Kauk2,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Huok2,
+              prof: Profession.Kauk2,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Kok1,
+              prof: Profession.Kauk2,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Kok1,
+              prof: Profession.Nuak1,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Kok1,
+              prof: Profession.Kauk2,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Huok2,
+              prof: Profession.Kauk2,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Kok1,
+              prof: Profession.Kauk2,
+              side: Side.NonIAOwner,
+            },
+            {
+              color: Color.Huok2,
+              prof: Profession.Kauk2,
+              side: Side.NonIAOwner,
+            },
+          ],
+          [null, null, null, null, null, null, null, null, null],
+          [null, null, null, null, "Tam2", null, null, null, null],
+          [null, null, null, null, null, null, null, null, null],
+          [
+            {
+              color: Color.Huok2,
+              prof: Profession.Kauk2,
+              side: Side.IAOwner,
+            },
+            { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner },
+            {
+              color: Color.Huok2,
+              prof: Profession.Kauk2,
+              side: Side.IAOwner,
+            },
+            { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner },
+            {
+              color: Color.Huok2,
+              prof: Profession.Nuak1,
+              side: Side.IAOwner,
+            },
+            { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner },
+            {
+              color: Color.Huok2,
+              prof: Profession.Kauk2,
+              side: Side.IAOwner,
+            },
+            { color: Color.Kok1, prof: Profession.Kauk2, side: Side.IAOwner },
+            {
+              color: Color.Huok2,
+              prof: Profession.Kauk2,
+              side: Side.IAOwner,
+            },
+          ],
+          [
+            { color: Color.Huok2, prof: Profession.Tuk2, side: Side.IAOwner },
+            { color: Color.Huok2, prof: Profession.Gua2, side: Side.IAOwner },
+            null,
+            { color: Color.Huok2, prof: Profession.Dau2, side: Side.IAOwner },
+            null,
+            { color: Color.Kok1, prof: Profession.Dau2, side: Side.IAOwner },
+            null,
+            { color: Color.Kok1, prof: Profession.Gua2, side: Side.IAOwner },
+            { color: Color.Kok1, prof: Profession.Tuk2, side: Side.IAOwner },
+          ],
+          [
+            { color: Color.Kok1, prof: Profession.Kua2, side: Side.IAOwner },
+            { color: Color.Kok1, prof: Profession.Maun1, side: Side.IAOwner },
+            { color: Color.Kok1, prof: Profession.Kaun1, side: Side.IAOwner },
+            { color: Color.Kok1, prof: Profession.Uai1, side: Side.IAOwner },
+            { color: Color.Huok2, prof: Profession.Io, side: Side.IAOwner },
+            { color: Color.Huok2, prof: Profession.Uai1, side: Side.IAOwner },
+            {
+              color: Color.Huok2,
+              prof: Profession.Kaun1,
+              side: Side.IAOwner,
+            },
+            {
+              color: Color.Huok2,
+              prof: Profession.Maun1,
+              side: Side.IAOwner,
+            },
+            { color: Color.Huok2, prof: Profession.Kua2, side: Side.IAOwner },
+          ],
+        ],
+        hop1zuo1OfIAOwner: [],
+        hop1zuo1OfNonIAOwner: [],
+      },
+      waiting_for_after_half_acceptance: null,
+      moves_to_be_polled: [[], [], [], []],
+    });
+    console.log(
+      `Opened a room ${room_id} to be used by a player ${newToken} and a bot ${bot_token}.`,
+    );
+    publicly_announce(
+      `Opened a room ${sha256_first7(room_id)} to be used by a player ${sha256_first7(newToken)} and a bot ${sha256_first7(bot_token)}.`,
+    );
+
+    console.log(
+      `${is_first_turn_newToken_turn[0 /* spring */] ? newToken : bot_token
+      } moves first.`,
+    );
+    publicly_announce(
+      `${is_first_turn_newToken_turn[0 /* spring */] ? sha256_first7(newToken) : sha256_first7(bot_token)
+      } moves first.`,
+    );
+
+    console.log(
+      `IA is down, from the perspective of ${is_IA_down_for_newToken ? newToken : bot_token
+      }.`,
+    );
+    publicly_announce(
+      `IA is down, from the perspective of ${is_IA_down_for_newToken ? sha256_first7(newToken) : sha256_first7(bot_token)
+      }.`,
+    );
+
+    // exit after finding the first person
+    return {
+      state: "let_the_game_begin",
+      access_token: newToken,
+      is_first_move_my_move: is_first_turn_newToken_turn[0 /* spring */],
+      is_IA_down_for_me: is_IA_down_for_newToken,
+    };
+
+  }
+
+  return {
+    entrance: vs_cpu_entrance_entrance,
+    poll: vs_cpu_entrance_poll,
+  };
+})();
+
 const random_entrance = (() => {
   const RandomEntrancePollVerifier = t.strict({
     access_token: t.string,
@@ -1074,7 +1408,7 @@ const random_entrance = (() => {
     return res.json(
       pipe(
         RandomEntrancePollVerifier.decode(req.body),
-        fold(onLeft, function(msg: { access_token: string }): Ret_RandomPoll {
+        fold(onLeft, function (msg: { access_token: string }): Ret_RandomPoll {
           const access_token = msg.access_token as AccessToken;
           const maybe_room_id:
             | RoomInfoWithPerspective
@@ -1124,7 +1458,7 @@ const random_entrance = (() => {
     return res.json(
       pipe(
         RandomEntranceCancelVerifier.decode(req.body),
-        fold(onLeft, function(msg: { access_token: string }): Ret_RandomCancel {
+        fold(onLeft, function (msg: { access_token: string }): Ret_RandomCancel {
           const access_token = msg.access_token as AccessToken;
           const maybe_room_id:
             | RoomInfoWithPerspective
@@ -1405,24 +1739,20 @@ const random_entrance = (() => {
       );
 
       console.log(
-        `${
-          is_first_turn_newToken_turn[0 /* spring */] ? newToken : token
+        `${is_first_turn_newToken_turn[0 /* spring */] ? newToken : token
         } moves first.`,
       );
       publicly_announce(
-        `${
-          is_first_turn_newToken_turn[0 /* spring */] ? sha256_first7(newToken) : sha256_first7(token)
+        `${is_first_turn_newToken_turn[0 /* spring */] ? sha256_first7(newToken) : sha256_first7(token)
         } moves first.`,
       );
 
       console.log(
-        `IA is down, from the perspective of ${
-          is_IA_down_for_newToken ? newToken : token
+        `IA is down, from the perspective of ${is_IA_down_for_newToken ? newToken : token
         }.`,
       );
       publicly_announce(
-        `IA is down, from the perspective of ${
-          is_IA_down_for_newToken ? sha256_first7(newToken) : sha256_first7(token)
+        `IA is down, from the perspective of ${is_IA_down_for_newToken ? sha256_first7(newToken) : sha256_first7(token)
         }.`,
       );
 
@@ -1462,7 +1792,7 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
   res.header(
     "Access-Control-Allow-Headers",
@@ -1509,13 +1839,15 @@ app
   .post("/random/entry", random_entrance.entrance)
   .post("/random/poll", random_entrance.poll)
   .post("/random/cancel", random_entrance.cancel)
+  .post("/vs_cpu/entry", vs_cpu_entrance.entrance)
+  .post("/vs_cpu/poll", vs_cpu_entrance.poll)
   .listen(PORT, () => console.log(`Listening on ${PORT}`));
 
 function somepoll<T>(
   address: string,
   replyfn: (room_info: RoomInfoWithPerspective) => T,
 ) {
-  return function(req: Request, res: Response) {
+  return function (req: Request, res: Response) {
     console.log(`\n sent to '${address}'`);
     console.log(JSON.stringify(req.body, null, "\t"));
 
@@ -1771,11 +2103,20 @@ function main(req: Request, res: Response) {
 
 var waiting_list = new Set<AccessToken>();
 var person_to_room = new Map<AccessToken, RoomInfoWithPerspective>();
+var bot_to_room = new Map<BotToken, RoomInfoWithPerspective>();
 var room_to_gamestate = new Map<RoomId, GameState>();
 
 function open_a_room(token1: AccessToken, token2: AccessToken): RoomId {
   console.log("A match between", token1, "and", token2, "will begin.");
   publicly_announce(`A match between ${sha256_first7(token1)} and ${sha256_first7(token2)} will begin.`)
+
+  // FIXME
+  return uuidv4() as RoomId;
+}
+
+function open_a_room_against_bot(token1: BotToken, token2: AccessToken): RoomId {
+  console.log("A match between a bot", token1, "and a player", token2, "will begin.");
+  publicly_announce(`A match between a bot ${sha256_first7(token1)} and a player ${sha256_first7(token2)} will begin.`)
 
   // FIXME
   return uuidv4() as RoomId;
