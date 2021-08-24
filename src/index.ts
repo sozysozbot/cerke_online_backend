@@ -875,7 +875,37 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
 type BotMove = NormalMove /* FIXME: a pair [InfAfterStep, After HalfAcceptance] should also work */;
 
 function generateBotMove(game_state: Readonly<GameState>): BotMove {
-  throw new Error("`generateBotMove` not yet implemented!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+  const all_coords: AbsoluteCoord[] = [
+    ["A", "K"], ["A", "L"], ["A", "N"], ["A", "T"], ["A", "Z"], ["A", "X"], ["A", "C"], ["A", "M"], ["A", "P"],
+    ["E", "K"], ["E", "L"], ["E", "N"], ["E", "T"], ["E", "Z"], ["E", "X"], ["E", "C"], ["E", "M"], ["E", "P"],
+    ["I", "K"], ["I", "L"], ["I", "N"], ["I", "T"], ["I", "Z"], ["I", "X"], ["I", "C"], ["I", "M"], ["I", "P"],
+    ["U", "K"], ["U", "L"], ["U", "N"], ["U", "T"], ["U", "Z"], ["U", "X"], ["U", "C"], ["U", "M"], ["U", "P"],
+    ["O", "K"], ["O", "L"], ["O", "N"], ["O", "T"], ["O", "Z"], ["O", "X"], ["O", "C"], ["O", "M"], ["O", "P"],
+    ["Y", "K"], ["Y", "L"], ["Y", "N"], ["Y", "T"], ["Y", "Z"], ["Y", "X"], ["Y", "C"], ["Y", "M"], ["Y", "P"],
+    ["AI", "K"], ["AI", "L"], ["AI", "N"], ["AI", "T"], ["AI", "Z"], ["AI", "X"], ["AI", "C"], ["AI", "M"], ["AI", "P"],
+    ["AU", "K"], ["AU", "L"], ["AU", "N"], ["AU", "T"], ["AU", "Z"], ["AU", "X"], ["AU", "C"], ["AU", "M"], ["AU", "P"],
+    ["IA", "K"], ["IA", "L"], ["IA", "N"], ["IA", "T"], ["IA", "Z"], ["IA", "X"], ["IA", "C"], ["IA", "M"], ["IA", "P"],
+  ];
+
+  const [tam_position] = all_coords.filter(coord => getPiece(game_state, coord) === "Tam2");
+
+  if (tam_position[0] === "O" && tam_position[1] === "Z") {
+    return {
+      type: "TamMove",
+      stepStyle: "NoStep",
+      src: tam_position,
+      firstDest: ["O", "T"],
+      secondDest: ["O", "N"],
+    }
+  } else if (tam_position[0] === "O" && tam_position[1] === "N") {
+    return {
+      type: "TamMove",
+      stepStyle: "NoStep",
+      src: tam_position,
+      firstDest: ["O", "T"],
+      secondDest: ["O", "Z"],
+    }
+  } else throw new Error("the bot cannot handle this tam position")
 }
 
 function analyzeValidMessageAndUpdate(
