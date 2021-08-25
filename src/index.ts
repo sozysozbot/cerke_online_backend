@@ -29,6 +29,11 @@ import { Hand, ObtainablePieces, calculate_hands_and_score_from_pieces } from "c
 import * as t from "io-ts";
 import { pipe } from "fp-ts/lib/pipeable";
 import { fold } from "fp-ts/lib/Either";
+import { BotMove, generateBotMove } from "./bot";
+import {
+  Season, Log2_Rate, Field, Tuple4, Color, Profession,
+  Piece, NonTam2Piece, NonTam2PieceIAOwner, NonTam2PieceNonIAOwner, Side
+} from "./type_gamestate";
 
 // For the notifier. I don't think it should live in index.ts, but for now let's just do it
 import Discord from "discord.js";
@@ -43,23 +48,6 @@ const publicly_announce = (msg: string) => {
   (client.channels.cache.get('716511640190713921')! as Discord.TextChannel).send(msg)
 };
 
-enum Color {
-  Kok1, // Red, 赤
-  Huok2, // Black, 黒
-}
-
-enum Profession {
-  Nuak1, // Vessel, 船, felkana
-  Kauk2, // Pawn, 兵, elmer
-  Gua2, // Rook, 弓, gustuer
-  Kaun1, // Bishop, 車, vadyrd
-  Dau2, // Tiger, 虎, stistyst
-  Maun1, // Horse, 馬, dodor
-  Kua2, // Clerk, 筆, kua
-  Tuk2, // Shaman, 巫, terlsk
-  Uai1, // General, 将, varxle
-  Io, // King, 王, ales
-}
 
 type RoomId = string & { __RoomIdBrand: never };
 type AccessToken = string & { __AccessTokenBrand: never };
@@ -70,52 +58,6 @@ type RoomInfoWithPerspective = {
   is_first_move_my_move: Tuple4<boolean>;
   is_IA_down_for_me: boolean;
 };
-
-type Season = 0 | 1 | 2 | 3;
-type Log2_Rate = 0 | 1 | 2 | 3 | 4 | 5 | 6;
-/*
- * Theoretically speaking, it is necessary to distinguish x32 and x64
- * because it is possible to score 1 point (3+3-5).
- * Not that it will ever be of use in any real situation.
- */
-
-interface Field {
-  currentBoard: Board;
-  hop1zuo1OfIAOwner: NonTam2PieceIAOwner[];
-  hop1zuo1OfNonIAOwner: NonTam2PieceNonIAOwner[];
-}
-
-export enum Side {
-  IAOwner,
-  NonIAOwner,
-}
-
-export interface NonTam2PieceNonIAOwner {
-  color: Color; // The color of the piece
-  prof: Profession; // The profession of the piece
-  side: Side.NonIAOwner; // The side that the piece belongs to
-}
-
-export interface NonTam2PieceIAOwner {
-  color: Color; // The color of the piece
-  prof: Profession; // The profession of the piece
-  side: Side.IAOwner; // The side that the piece belongs to
-}
-
-export interface NonTam2Piece {
-  color: Color; // The color of the piece
-  prof: Profession; // The profession of the piece
-  side: Side; // The side that the piece belongs to
-}
-
-export type Piece = "Tam2" | NonTam2Piece;
-
-export type Tuple9<T> = [T, T, T, T, T, T, T, T, T];
-
-export type Board = Tuple9<Row>;
-export type Row = Tuple9<Piece | null>;
-
-type Tuple4<T> = [T, T, T, T];
 
 interface GameState {
   f: Field;
@@ -130,6 +72,7 @@ interface GameState {
   log2_rate: Log2_Rate;
   moves_to_be_polled: Tuple4<Array<MovePiece>>;
 }
+
 
 type HandCompletionStatus = null | "ty mok1" | "ta xot1" | "not yet";
 
@@ -878,46 +821,6 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
   const mov2 = getLastMove(game_state);
   if (typeof mov2 === "undefined") { throw new Error("Although the bot is supposed to have played something, I cannot locate it") }
   return { legal: true, content: mov2.move };
-}
-
-type Tuple6<T> = [T, T, T, T, T, T];
-type BotMove = { t: "normal", dat: NormalMove } | { t: "inf", dat: InfAfterStep, after: Tuple6<AfterHalfAcceptance> };
-
-function generateBotMove(game_state: Readonly<GameState>): BotMove {
-  const all_coords: AbsoluteCoord[] = [
-    ["A", "K"], ["A", "L"], ["A", "N"], ["A", "T"], ["A", "Z"], ["A", "X"], ["A", "C"], ["A", "M"], ["A", "P"],
-    ["E", "K"], ["E", "L"], ["E", "N"], ["E", "T"], ["E", "Z"], ["E", "X"], ["E", "C"], ["E", "M"], ["E", "P"],
-    ["I", "K"], ["I", "L"], ["I", "N"], ["I", "T"], ["I", "Z"], ["I", "X"], ["I", "C"], ["I", "M"], ["I", "P"],
-    ["U", "K"], ["U", "L"], ["U", "N"], ["U", "T"], ["U", "Z"], ["U", "X"], ["U", "C"], ["U", "M"], ["U", "P"],
-    ["O", "K"], ["O", "L"], ["O", "N"], ["O", "T"], ["O", "Z"], ["O", "X"], ["O", "C"], ["O", "M"], ["O", "P"],
-    ["Y", "K"], ["Y", "L"], ["Y", "N"], ["Y", "T"], ["Y", "Z"], ["Y", "X"], ["Y", "C"], ["Y", "M"], ["Y", "P"],
-    ["AI", "K"], ["AI", "L"], ["AI", "N"], ["AI", "T"], ["AI", "Z"], ["AI", "X"], ["AI", "C"], ["AI", "M"], ["AI", "P"],
-    ["AU", "K"], ["AU", "L"], ["AU", "N"], ["AU", "T"], ["AU", "Z"], ["AU", "X"], ["AU", "C"], ["AU", "M"], ["AU", "P"],
-    ["IA", "K"], ["IA", "L"], ["IA", "N"], ["IA", "T"], ["IA", "Z"], ["IA", "X"], ["IA", "C"], ["IA", "M"], ["IA", "P"],
-  ];
-
-  const [tam_position] = all_coords.filter(coord => getPiece(game_state, coord) === "Tam2");
-  if (tam_position[0] === "O" && tam_position[1] === "Z") {
-    return {
-      t: "normal", dat: {
-        type: "TamMove",
-        stepStyle: "NoStep",
-        src: tam_position,
-        firstDest: ["O", "T"],
-        secondDest: ["O", "N"],
-      }
-    }
-  } else if (tam_position[0] === "O" && tam_position[1] === "N") {
-    return {
-      t: "normal", dat: {
-        type: "TamMove",
-        stepStyle: "NoStep",
-        src: tam_position,
-        firstDest: ["O", "T"],
-        secondDest: ["O", "Z"],
-      }
-    }
-  } else throw new Error("the bot cannot handle this tam position")
 }
 
 function analyzeValidMessageAndUpdate(
