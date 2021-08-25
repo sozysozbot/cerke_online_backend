@@ -18,6 +18,7 @@ import {
   SrcDst,
   SrcStepDstFinite,
   MoveToBePolled,
+  Color, Profession,
 } from "cerke_online_api";
 type Ret_VsCpuEntry = {
   "state": "let_the_game_begin";
@@ -31,7 +32,7 @@ import { pipe } from "fp-ts/lib/pipeable";
 import { fold } from "fp-ts/lib/Either";
 import { BotMove, generateBotMove } from "./bot";
 import {
-  Season, Log2_Rate, Field, Tuple4, Color, Profession,
+  Season, Log2_Rate, Field, Tuple4,
   Piece, NonTam2Piece, NonTam2PieceIAOwner, NonTam2PieceNonIAOwner, Side
 } from "./type_gamestate";
 
@@ -405,6 +406,11 @@ function getLastMove(game_state: Readonly<GameState>) {
     return undefined;
   }
   return arr[arr.length - 1];
+}
+
+function howManyDaysHavePassed(game_state: Readonly<GameState>): number {
+  const arr = game_state.moves_to_be_polled[game_state.season];
+  return arr.length;
 }
 
 function ifStepTamEditScore(
@@ -797,7 +803,7 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
   // Hence, here I should:
 
   // 1. Generate the bot's move on the fly
-  const bot_move = generateBotMove(game_state);
+  const bot_move = generateBotMove(game_state, howManyDaysHavePassed(game_state));
 
   // 2. Update the `game_state` depending on the move I just generated.
   // To do this without duplicating the code, I just have to play one move in the bot's perspective.

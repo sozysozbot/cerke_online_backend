@@ -1,24 +1,7 @@
 import {
     AbsoluteCoord,
+    Color, Profession
 } from "cerke_online_api";
-
-export enum Color {
-    Kok1, // Red, 赤
-    Huok2, // Black, 黒
-}
-
-export enum Profession {
-    Nuak1, // Vessel, 船, felkana
-    Kauk2, // Pawn, 兵, elmer
-    Gua2, // Rook, 弓, gustuer
-    Kaun1, // Bishop, 車, vadyrd
-    Dau2, // Tiger, 虎, stistyst
-    Maun1, // Horse, 馬, dodor
-    Kua2, // Clerk, 筆, kua
-    Tuk2, // Shaman, 巫, terlsk
-    Uai1, // General, 将, varxle
-    Io, // King, 王, ales
-}
 
 export type Season = 0 | 1 | 2 | 3;
 export type Log2_Rate = 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -72,10 +55,6 @@ export interface GameStateVisibleFromBot {
     f: Field;
     tam_itself_is_tam_hue: boolean;
     is_IA_owner_s_turn: boolean;
-    waiting_for_after_half_acceptance: null | {
-        src: AbsoluteCoord;
-        step: AbsoluteCoord;
-    };
     season: Season;
     IA_owner_s_score: number;
     log2_rate: Log2_Rate;

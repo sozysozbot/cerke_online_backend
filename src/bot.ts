@@ -73,7 +73,7 @@ function getPiece(game_state: Readonly<GameStateVisibleFromBot>, coord: Absolute
     return game_state.f.currentBoard[i][j];
 }
 
-export function generateBotMove(game_state: Readonly<GameStateVisibleFromBot>): BotMove {
+export function generateBotMove(game_state: Readonly<GameStateVisibleFromBot>, how_many_days_have_passed: number): BotMove {
     const all_coords: AbsoluteCoord[] = [
         ["A", "K"], ["A", "L"], ["A", "N"], ["A", "T"], ["A", "Z"], ["A", "X"], ["A", "C"], ["A", "M"], ["A", "P"],
         ["E", "K"], ["E", "L"], ["E", "N"], ["E", "T"], ["E", "Z"], ["E", "X"], ["E", "C"], ["E", "M"], ["E", "P"],
