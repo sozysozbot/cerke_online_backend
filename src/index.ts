@@ -858,13 +858,21 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
 
   // 2. Update the `game_state` depending on the move I just generated.
   // To do this without duplicating the code, I just have to play one move in the bot's perspective.
-  analyzeValidMessageAndUpdate(bot_move, {
+  const bot_perspective = {
     room_id: room_info.room_id,
     is_first_move_my_move: room_info.is_first_move_my_move.map(
       a => !a,
     ) as Tuple4<boolean>,
     is_IA_down_for_me: !room_info.is_IA_down_for_me,
-  })
+  };
+  const ret = analyzeValidMessageAndUpdate(bot_move.dat, bot_perspective);
+
+  if (bot_move.t === "inf") {
+    const ret2 = ret as Ret_InfAfterStep;
+    if (!ret2.legal) { throw new Error("bot died while handling InfAfterStep!") }
+    const next_move = bot_move.after[ret2.ciurl.filter(a => a).length];
+    analyzeMessageAndUpdate(next_move, bot_perspective);
+  }
 
   // 3. Send back the move I just made
   const mov2 = getLastMove(game_state);
@@ -872,7 +880,8 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
   return { legal: true, content: mov2.move };
 }
 
-type BotMove = NormalMove /* FIXME: a pair [InfAfterStep, After HalfAcceptance] should also work */;
+type Tuple6<T> = [T, T, T, T, T, T];
+type BotMove = { t: "normal", dat: NormalMove } | { t: "inf", dat: InfAfterStep, after: Tuple6<AfterHalfAcceptance> };
 
 function generateBotMove(game_state: Readonly<GameState>): BotMove {
   const all_coords: AbsoluteCoord[] = [
@@ -888,22 +897,25 @@ function generateBotMove(game_state: Readonly<GameState>): BotMove {
   ];
 
   const [tam_position] = all_coords.filter(coord => getPiece(game_state, coord) === "Tam2");
-
   if (tam_position[0] === "O" && tam_position[1] === "Z") {
     return {
-      type: "TamMove",
-      stepStyle: "NoStep",
-      src: tam_position,
-      firstDest: ["O", "T"],
-      secondDest: ["O", "N"],
+      t: "normal", dat: {
+        type: "TamMove",
+        stepStyle: "NoStep",
+        src: tam_position,
+        firstDest: ["O", "T"],
+        secondDest: ["O", "N"],
+      }
     }
   } else if (tam_position[0] === "O" && tam_position[1] === "N") {
     return {
-      type: "TamMove",
-      stepStyle: "NoStep",
-      src: tam_position,
-      firstDest: ["O", "T"],
-      secondDest: ["O", "Z"],
+      t: "normal", dat: {
+        type: "TamMove",
+        stepStyle: "NoStep",
+        src: tam_position,
+        firstDest: ["O", "T"],
+        secondDest: ["O", "Z"],
+      }
     }
   } else throw new Error("the bot cannot handle this tam position")
 }
