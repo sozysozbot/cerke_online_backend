@@ -4,7 +4,9 @@ import {
     InfAfterStep,
     AfterHalfAcceptance,
 } from "cerke_online_api";
-import { GameStateVisibleFromBot } from "./type_gamestate";
+import { not_from_hand_candidates, PureGameState, get_valid_opponent_moves, not_from_hand_candidates_ } from "cerke_verifier";
+import { GameStateVisibleFromBot, Side } from "./type_gamestate";
+import * as cerke_verifier from "cerke_verifier";
 
 type Tuple6<T> = [T, T, T, T, T, T];
 export type BotMove = { t: "normal", dat: NormalMove } | { t: "inf", dat: InfAfterStep, after: Tuple6<AfterHalfAcceptance> };
@@ -73,7 +75,62 @@ function getPiece(game_state: Readonly<GameStateVisibleFromBot>, coord: Absolute
     return game_state.f.currentBoard[i][j];
 }
 
-export function generateBotMove(game_state: Readonly<GameStateVisibleFromBot>, how_many_days_have_passed: number): BotMove {
+function toPureGameState(
+    game_state: Readonly<GameStateVisibleFromBot>,
+    opponent_has_just_moved_tam: boolean
+): Readonly<PureGameState> {
+    const currentBoard_: (cerke_verifier.Piece | null)[][] = game_state.f.currentBoard.map(row => row.map(p => {
+        if (p === "Tam2") {
+            return "Tam2"
+        } else if (p && p.side === Side.IAOwner) {
+            return { color: p.color, prof: p.prof, side: cerke_verifier.Side.Upward }
+        } else if (p && p.side === Side.NonIAOwner) {
+            return { color: p.color, prof: p.prof, side: cerke_verifier.Side.Downward }
+        } else {
+            return null;
+        }
+    }));
+    const currentBoard: cerke_verifier.Board = currentBoard_ as cerke_verifier.Board;
+    return {
+        IA_is_down: true,
+        tam_itself_is_tam_hue: game_state.tam_itself_is_tam_hue,
+        f: {
+            // When IA_is_down, IA is owned by Upward
+            hop1zuo1OfUpward: game_state.f.hop1zuo1OfIAOwner.map(p => ({ color: p.color, prof: p.prof, side: cerke_verifier.Side.Upward })),
+            hop1zuo1OfDownward: game_state.f.hop1zuo1OfNonIAOwner.map(p => ({ color: p.color, prof: p.prof, side: cerke_verifier.Side.Downward })),
+            currentBoard
+        },
+        opponent_has_just_moved_tam
+    }
+}
+
+function toBotMove(mov: cerke_verifier.PureOpponentMove): BotMove {
+    if (mov.type === "TamMove") {
+        return { t: "normal", dat: mov };
+    } else if (mov.type === "NonTamMove") {
+        return { t: "normal", dat: mov };
+    } else if (mov.type === "InfAfterStep") {
+        throw new Error("infafterstep not yet handled");
+    } else {
+        const _should_not_reach_here: never = mov;
+        throw new Error("should not happen");
+    }
+}
+
+export function generateBotMove(
+    game_state: Readonly<GameStateVisibleFromBot>,
+    how_many_days_have_passed: number,
+    opponent_has_just_moved_tam: boolean
+): BotMove {
+    const pure_game_state = toPureGameState(game_state, opponent_has_just_moved_tam);
+
+    const candidates = not_from_hand_candidates(pure_game_state);
+    while (true) {
+        const mov = candidates[candidates.length * Math.random() | 0];
+        if (mov.type === "InfAfterStep") { continue; }
+        return toBotMove(mov);
+    }
+    /*
     const all_coords: AbsoluteCoord[] = [
         ["A", "K"], ["A", "L"], ["A", "N"], ["A", "T"], ["A", "Z"], ["A", "X"], ["A", "C"], ["A", "M"], ["A", "P"],
         ["E", "K"], ["E", "L"], ["E", "N"], ["E", "T"], ["E", "Z"], ["E", "X"], ["E", "C"], ["E", "M"], ["E", "P"],
@@ -108,4 +165,5 @@ export function generateBotMove(game_state: Readonly<GameStateVisibleFromBot>, h
             }
         }
     } else throw new Error("the bot cannot handle this tam position")
+    */
 }
