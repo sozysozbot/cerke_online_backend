@@ -122,7 +122,7 @@ export function generateBotMove(
     how_many_days_have_passed: number,
     opponent_has_just_moved_tam: boolean
 ): BotMove {
-    const pure_game_state = toPureGameState(game_state, opponent_has_just_moved_tam);
+    /*const pure_game_state = toPureGameState(game_state, opponent_has_just_moved_tam);
 
     const candidates = not_from_hand_candidates(pure_game_state);
     while (true) {
@@ -131,6 +131,7 @@ export function generateBotMove(
         break;
         //  return toBotMove(mov);
     }
+    */
     
     const all_coords: AbsoluteCoord[] = [
         ["A", "K"], ["A", "L"], ["A", "N"], ["A", "T"], ["A", "Z"], ["A", "X"], ["A", "C"], ["A", "M"], ["A", "P"],
