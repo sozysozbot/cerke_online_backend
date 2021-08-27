@@ -80,19 +80,19 @@ function toPureGameState(
     opponent_has_just_moved_tam: boolean,
     ia_is_down: boolean
 ): Readonly<PureGameState> {
+    const currentBoard_: (cerke_verifier.Piece | null)[][] = game_state.f.currentBoard.map(row => row.map(p => {
+        if (p === "Tam2") {
+            return "Tam2"
+        } else if (p && p.side === Side.IAOwner) {
+            return { color: p.color, prof: p.prof, side: cerke_verifier.Side.Upward }
+        } else if (p && p.side === Side.NonIAOwner) {
+            return { color: p.color, prof: p.prof, side: cerke_verifier.Side.Downward }
+        } else {
+            return null;
+        }
+    }));
+
     if (ia_is_down) {
-        console.log("this is working very fine ...........................")
-        const currentBoard_: (cerke_verifier.Piece | null)[][] = game_state.f.currentBoard.map(row => row.map(p => {
-            if (p === "Tam2") {
-                return "Tam2"
-            } else if (p && p.side === Side.IAOwner) {
-                return { color: p.color, prof: p.prof, side: cerke_verifier.Side.Upward }
-            } else if (p && p.side === Side.NonIAOwner) {
-                return { color: p.color, prof: p.prof, side: cerke_verifier.Side.Downward }
-            } else {
-                return null;
-            }
-        }));
         const currentBoard: cerke_verifier.Board = currentBoard_ as cerke_verifier.Board;
         return {
             IA_is_down: true,
@@ -106,18 +106,7 @@ function toPureGameState(
             opponent_has_just_moved_tam
         }
     } else {
-        console.log("this is NOT WORKING, i suppose")
-        const currentBoard_: (cerke_verifier.Piece | null)[][] = game_state.f.currentBoard.map(row => row.map(p => {
-            if (p === "Tam2") {
-                return "Tam2"
-            } else if (p && p.side === Side.IAOwner) {
-                return { color: p.color, prof: p.prof, side: cerke_verifier.Side.Downward }
-            } else if (p && p.side === Side.NonIAOwner) {
-                return { color: p.color, prof: p.prof, side: cerke_verifier.Side.Upward }
-            } else {
-                return null;
-            }
-        }));
+        console.log("how about this?")
         const currentBoard: cerke_verifier.Board = cerke_verifier.rotateBoard(currentBoard_ as cerke_verifier.Board);
         return {
             IA_is_down: false,
