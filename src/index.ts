@@ -809,7 +809,7 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
   })();
 
   // 1. Generate the bot's move on the fly
-  const bot_move = generateBotMove(game_state, howManyDaysHavePassed(game_state), opponent_has_just_moved_tam);
+  const bot_move = generateBotMove(game_state, howManyDaysHavePassed(game_state), opponent_has_just_moved_tam, room_info.is_IA_down_for_me);
 
   // 2. Update the `game_state` depending on the move I just generated.
   // To do this without duplicating the code, I just have to play one move in the bot's perspective.

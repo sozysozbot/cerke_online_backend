@@ -5,7 +5,7 @@ import {
     AfterHalfAcceptance,
 } from "cerke_online_api";
 import { not_from_hand_candidates, PureGameState, get_valid_opponent_moves, not_from_hand_candidates_ } from "cerke_verifier";
-import { GameStateVisibleFromBot, Side } from "./type_gamestate";
+import { GameStateVisibleFromBot as GameStateWithSomeInfoHidden, Side } from "./type_gamestate";
 import * as cerke_verifier from "cerke_verifier";
 
 type Tuple6<T> = [T, T, T, T, T, T];
@@ -70,37 +70,63 @@ function fromAbsoluteCoord_([absrow, abscol]: AbsoluteCoord): [
     }
 }
 
-function getPiece(game_state: Readonly<GameStateVisibleFromBot>, coord: AbsoluteCoord) {
+function getPiece(game_state: Readonly<GameStateWithSomeInfoHidden>, coord: AbsoluteCoord) {
     const [i, j] = fromAbsoluteCoord_(coord);
     return game_state.f.currentBoard[i][j];
 }
 
 function toPureGameState(
-    game_state: Readonly<GameStateVisibleFromBot>,
-    opponent_has_just_moved_tam: boolean
+    game_state: Readonly<GameStateWithSomeInfoHidden>,
+    opponent_has_just_moved_tam: boolean,
+    ia_is_down_for_player_not_bot: boolean
 ): Readonly<PureGameState> {
-    const currentBoard_: (cerke_verifier.Piece | null)[][] = game_state.f.currentBoard.map(row => row.map(p => {
-        if (p === "Tam2") {
-            return "Tam2"
-        } else if (p && p.side === Side.IAOwner) {
-            return { color: p.color, prof: p.prof, side: cerke_verifier.Side.Upward }
-        } else if (p && p.side === Side.NonIAOwner) {
-            return { color: p.color, prof: p.prof, side: cerke_verifier.Side.Downward }
-        } else {
-            return null;
+    if (ia_is_down_for_player_not_bot) {
+        const currentBoard_: (cerke_verifier.Piece | null)[][] = game_state.f.currentBoard.map(row => row.map(p => {
+            if (p === "Tam2") {
+                return "Tam2"
+            } else if (p && p.side === Side.IAOwner) {
+                return { color: p.color, prof: p.prof, side: cerke_verifier.Side.Downward }
+            } else if (p && p.side === Side.NonIAOwner) {
+                return { color: p.color, prof: p.prof, side: cerke_verifier.Side.Upward }
+            } else {
+                return null;
+            }
+        }));
+        const currentBoard: cerke_verifier.Board = currentBoard_ as cerke_verifier.Board;
+        return {
+            IA_is_down: true,
+            tam_itself_is_tam_hue: game_state.tam_itself_is_tam_hue,
+            f: {
+                hop1zuo1OfUpward: game_state.f.hop1zuo1OfNonIAOwner.map(p => ({ color: p.color, prof: p.prof, side: cerke_verifier.Side.Upward })),
+                hop1zuo1OfDownward: game_state.f.hop1zuo1OfIAOwner.map(p => ({ color: p.color, prof: p.prof, side: cerke_verifier.Side.Downward })),
+                currentBoard
+            },
+            opponent_has_just_moved_tam
         }
-    }));
-    const currentBoard: cerke_verifier.Board = currentBoard_ as cerke_verifier.Board;
-    return {
-        IA_is_down: true,
-        tam_itself_is_tam_hue: game_state.tam_itself_is_tam_hue,
-        f: {
-            // When IA_is_down, IA is owned by Upward
-            hop1zuo1OfUpward: game_state.f.hop1zuo1OfIAOwner.map(p => ({ color: p.color, prof: p.prof, side: cerke_verifier.Side.Upward })),
-            hop1zuo1OfDownward: game_state.f.hop1zuo1OfNonIAOwner.map(p => ({ color: p.color, prof: p.prof, side: cerke_verifier.Side.Downward })),
-            currentBoard
-        },
-        opponent_has_just_moved_tam
+    } else {
+        const currentBoard_: (cerke_verifier.Piece | null)[][] = game_state.f.currentBoard.map(row => row.map(p => {
+            if (p === "Tam2") {
+                return "Tam2"
+            } else if (p && p.side === Side.IAOwner) {
+                return { color: p.color, prof: p.prof, side: cerke_verifier.Side.Upward }
+            } else if (p && p.side === Side.NonIAOwner) {
+                return { color: p.color, prof: p.prof, side: cerke_verifier.Side.Downward }
+            } else {
+                return null;
+            }
+        }));
+        const currentBoard: cerke_verifier.Board = currentBoard_ as cerke_verifier.Board;
+        return {
+            IA_is_down: true,
+            tam_itself_is_tam_hue: game_state.tam_itself_is_tam_hue,
+            f: {
+                // When IA_is_down, IA is owned by Upward
+                hop1zuo1OfUpward: game_state.f.hop1zuo1OfIAOwner.map(p => ({ color: p.color, prof: p.prof, side: cerke_verifier.Side.Upward })),
+                hop1zuo1OfDownward: game_state.f.hop1zuo1OfNonIAOwner.map(p => ({ color: p.color, prof: p.prof, side: cerke_verifier.Side.Downward })),
+                currentBoard
+            },
+            opponent_has_just_moved_tam
+        }
     }
 }
 
@@ -118,19 +144,20 @@ function toBotMove(mov: cerke_verifier.PureOpponentMove): BotMove {
 }
 
 export function generateBotMove(
-    game_state: Readonly<GameStateVisibleFromBot>,
+    game_state: Readonly<GameStateWithSomeInfoHidden>,
     how_many_days_have_passed: number,
-    opponent_has_just_moved_tam: boolean
+    opponent_has_just_moved_tam: boolean,
+    ia_is_down_for_player_not_bot: boolean
 ): BotMove {
-    const pure_game_state = toPureGameState(game_state, opponent_has_just_moved_tam);
+    const pure_game_state = toPureGameState(game_state, opponent_has_just_moved_tam, ia_is_down_for_player_not_bot);
 
     const candidates = not_from_hand_candidates(pure_game_state);
     while (true) {
         const mov = candidates[candidates.length * Math.random() | 0];
-        if (mov.type === "InfAfterStep") { continue; }
+        if (mov.type === "InfAfterStep" || mov.type === "TamMove") { continue; }
         return toBotMove(mov);
     }
-    
+
     const all_coords: AbsoluteCoord[] = [
         ["A", "K"], ["A", "L"], ["A", "N"], ["A", "T"], ["A", "Z"], ["A", "X"], ["A", "C"], ["A", "M"], ["A", "P"],
         ["E", "K"], ["E", "L"], ["E", "N"], ["E", "T"], ["E", "Z"], ["E", "X"], ["E", "C"], ["E", "M"], ["E", "P"],
