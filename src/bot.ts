@@ -6,7 +6,7 @@ import {
 } from "cerke_online_api";
 import { not_from_hand_candidates, PureGameState, get_valid_opponent_moves, not_from_hand_candidates_ } from "cerke_verifier";
 import { GameStateVisibleFromBot, Side } from "./type_gamestate";
-// import * as cerke_verifier from "cerke_verifier";
+import * as cerke_verifier from "cerke_verifier";
 
 type Tuple6<T> = [T, T, T, T, T, T];
 export type BotMove = { t: "normal", dat: NormalMove } | { t: "inf", dat: InfAfterStep, after: Tuple6<AfterHalfAcceptance> };
@@ -74,7 +74,7 @@ function getPiece(game_state: Readonly<GameStateVisibleFromBot>, coord: Absolute
     const [i, j] = fromAbsoluteCoord_(coord);
     return game_state.f.currentBoard[i][j];
 }
-/*
+
 function toPureGameState(
     game_state: Readonly<GameStateVisibleFromBot>,
     opponent_has_just_moved_tam: boolean
@@ -116,23 +116,20 @@ function toBotMove(mov: cerke_verifier.PureOpponentMove): BotMove {
         throw new Error("should not happen");
     }
 }
-*/
 
 export function generateBotMove(
     game_state: Readonly<GameStateVisibleFromBot>,
     how_many_days_have_passed: number,
     opponent_has_just_moved_tam: boolean
 ): BotMove {
-    /*const pure_game_state = toPureGameState(game_state, opponent_has_just_moved_tam);
+    const pure_game_state = toPureGameState(game_state, opponent_has_just_moved_tam);
 
     const candidates = not_from_hand_candidates(pure_game_state);
     while (true) {
         const mov = candidates[candidates.length * Math.random() | 0];
         if (mov.type === "InfAfterStep") { continue; }
-        break;
-        //  return toBotMove(mov);
+        return toBotMove(mov);
     }
-    */
     
     const all_coords: AbsoluteCoord[] = [
         ["A", "K"], ["A", "L"], ["A", "N"], ["A", "T"], ["A", "Z"], ["A", "X"], ["A", "C"], ["A", "M"], ["A", "P"],
