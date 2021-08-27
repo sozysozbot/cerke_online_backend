@@ -81,6 +81,7 @@ function toPureGameState(
     ia_is_down: boolean
 ): Readonly<PureGameState> {
     if (ia_is_down) {
+        console.log("this is working very fine ...........................")
         const currentBoard_: (cerke_verifier.Piece | null)[][] = game_state.f.currentBoard.map(row => row.map(p => {
             if (p === "Tam2") {
                 return "Tam2"
@@ -105,6 +106,7 @@ function toPureGameState(
             opponent_has_just_moved_tam
         }
     } else {
+        console.log("this is NOT WORKING, i suppose")
         const currentBoard_: (cerke_verifier.Piece | null)[][] = game_state.f.currentBoard.map(row => row.map(p => {
             if (p === "Tam2") {
                 return "Tam2"
