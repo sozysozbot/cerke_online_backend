@@ -810,11 +810,6 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
 
   // 1. Generate the bot's move on the fly
   const bot_move = generateBotMove(game_state, howManyDaysHavePassed(game_state), opponent_has_just_moved_tam, room_info.is_IA_down_for_me);
-  if (room_info.is_IA_down_for_me) {
-    console.log("The player should be controlling a black king, and the bot should be controlling a red king.")
-  } else {
-    console.log("The player should be controlling a red king, and the bot should be controlling a black king.")
-  }
 
 
   // 2. Update the `game_state` depending on the move I just generated.

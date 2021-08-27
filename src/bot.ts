@@ -78,9 +78,9 @@ function getPiece(game_state: Readonly<GameStateWithSomeInfoHidden>, coord: Abso
 function toPureGameState(
     game_state: Readonly<GameStateWithSomeInfoHidden>,
     opponent_has_just_moved_tam: boolean,
-    ia_is_down_for_player_not_bot: boolean
+    ia_is_down: boolean
 ): Readonly<PureGameState> {
-    if (ia_is_down_for_player_not_bot) {
+    if (ia_is_down) {
         const currentBoard_: (cerke_verifier.Piece | null)[][] = game_state.f.currentBoard.map(row => row.map(p => {
             if (p === "Tam2") {
                 return "Tam2"
@@ -149,9 +149,16 @@ export function generateBotMove(
     opponent_has_just_moved_tam: boolean,
     ia_is_down_for_player_not_bot: boolean
 ): BotMove {
-    const pure_game_state = toPureGameState(game_state, opponent_has_just_moved_tam, ia_is_down_for_player_not_bot);
+    if (ia_is_down_for_player_not_bot) {
+        console.log("The player should be controlling a black king, and the bot should be controlling a red king.")
+    } else {
+        console.log("The player should be controlling a red king, and the bot should be controlling a black king.")
+    }
 
-    const candidates = not_from_hand_candidates(pure_game_state);
+    // the moves that are generated are the opponent's move, so I need a negation
+    const pure_game_state = toPureGameState(game_state, opponent_has_just_moved_tam, !ia_is_down_for_player_not_bot);
+
+    const candidates = not_from_hand_candidates(pure_game_state); 
     while (true) {
         const mov = candidates[candidates.length * Math.random() | 0];
         if (mov.type === "InfAfterStep" || mov.type === "TamMove") { continue; }
