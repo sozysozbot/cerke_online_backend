@@ -6,7 +6,7 @@ import {
 } from "cerke_online_api";
 import { not_from_hand_candidates, PureGameState, get_valid_opponent_moves, not_from_hand_candidates_ } from "cerke_verifier";
 import { GameStateVisibleFromBot, Side } from "./type_gamestate";
-import * as cerke_verifier from "cerke_verifier";
+// import * as cerke_verifier from "cerke_verifier";
 
 type Tuple6<T> = [T, T, T, T, T, T];
 export type BotMove = { t: "normal", dat: NormalMove } | { t: "inf", dat: InfAfterStep, after: Tuple6<AfterHalfAcceptance> };
@@ -74,7 +74,7 @@ function getPiece(game_state: Readonly<GameStateVisibleFromBot>, coord: Absolute
     const [i, j] = fromAbsoluteCoord_(coord);
     return game_state.f.currentBoard[i][j];
 }
-
+/*
 function toPureGameState(
     game_state: Readonly<GameStateVisibleFromBot>,
     opponent_has_just_moved_tam: boolean
@@ -116,6 +116,7 @@ function toBotMove(mov: cerke_verifier.PureOpponentMove): BotMove {
         throw new Error("should not happen");
     }
 }
+*/
 
 export function generateBotMove(
     game_state: Readonly<GameStateVisibleFromBot>,
