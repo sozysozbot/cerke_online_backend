@@ -94,7 +94,7 @@ function toPureGameState(
         }));
         const currentBoard: cerke_verifier.Board = currentBoard_ as cerke_verifier.Board;
         return {
-            IA_is_down: true,
+            IA_is_down: false,
             tam_itself_is_tam_hue: game_state.tam_itself_is_tam_hue,
             f: {
                 hop1zuo1OfUpward: game_state.f.hop1zuo1OfNonIAOwner.map(p => ({ color: p.color, prof: p.prof, side: cerke_verifier.Side.Upward })),
