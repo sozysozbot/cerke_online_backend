@@ -92,7 +92,7 @@ function toPureGameState(
                 return null;
             }
         }));
-        const currentBoard: cerke_verifier.Board = currentBoard_ as cerke_verifier.Board;
+        const currentBoard: cerke_verifier.Board = cerke_verifier.rotateBoard(currentBoard_ as cerke_verifier.Board);
         return {
             IA_is_down: false,
             tam_itself_is_tam_hue: game_state.tam_itself_is_tam_hue,
