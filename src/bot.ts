@@ -80,7 +80,7 @@ function toPureGameState(
     opponent_has_just_moved_tam: boolean,
     ia_is_down_for_player_not_bot: boolean
 ): Readonly<PureGameState> {
-    if (ia_is_down_for_player_not_bot) {
+    if (!ia_is_down_for_player_not_bot) {
         const currentBoard_: (cerke_verifier.Piece | null)[][] = game_state.f.currentBoard.map(row => row.map(p => {
             if (p === "Tam2") {
                 return "Tam2"
