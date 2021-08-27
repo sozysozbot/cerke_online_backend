@@ -1,79 +1,14 @@
 import {
-    AbsoluteCoord,
     NormalMove,
     InfAfterStep,
     AfterHalfAcceptance,
 } from "cerke_online_api";
-import { not_from_hand_candidates, PureGameState, get_valid_opponent_moves, not_from_hand_candidates_ } from "cerke_verifier";
+import { not_from_hand_candidates, PureGameState } from "cerke_verifier";
 import { GameStateVisibleFromBot as GameStateWithSomeInfoHidden, Side } from "./type_gamestate";
 import * as cerke_verifier from "cerke_verifier";
 
 type Tuple6<T> = [T, T, T, T, T, T];
 export type BotMove = { t: "normal", dat: NormalMove } | { t: "inf", dat: InfAfterStep, after: Tuple6<AfterHalfAcceptance> };
-
-function fromAbsoluteCoord_([absrow, abscol]: AbsoluteCoord): [
-    number,
-    number,
-] {
-    let rowind: number;
-
-    if (absrow === "A") {
-        rowind = 0;
-    } else if (absrow === "E") {
-        rowind = 1;
-    } else if (absrow === "I") {
-        rowind = 2;
-    } else if (absrow === "U") {
-        rowind = 3;
-    } else if (absrow === "O") {
-        rowind = 4;
-    } else if (absrow === "Y") {
-        rowind = 5;
-    } else if (absrow === "AI") {
-        rowind = 6;
-    } else if (absrow === "AU") {
-        rowind = 7;
-    } else if (absrow === "IA") {
-        rowind = 8;
-    } else {
-        const _should_not_reach_here: never = absrow;
-        throw new Error("does not happen");
-    }
-
-    let colind: number;
-
-    if (abscol === "K") {
-        colind = 0;
-    } else if (abscol === "L") {
-        colind = 1;
-    } else if (abscol === "N") {
-        colind = 2;
-    } else if (abscol === "T") {
-        colind = 3;
-    } else if (abscol === "Z") {
-        colind = 4;
-    } else if (abscol === "X") {
-        colind = 5;
-    } else if (abscol === "C") {
-        colind = 6;
-    } else if (abscol === "M") {
-        colind = 7;
-    } else if (abscol === "P") {
-        colind = 8;
-    } else {
-        const _should_not_reach_here: never = abscol;
-        throw new Error("does not happen");
-    }
-
-    if (true) {
-        return [rowind, colind];
-    }
-}
-
-function getPiece(game_state: Readonly<GameStateWithSomeInfoHidden>, coord: AbsoluteCoord) {
-    const [i, j] = fromAbsoluteCoord_(coord);
-    return game_state.f.currentBoard[i][j];
-}
 
 function toPureGameState(
     game_state: Readonly<GameStateWithSomeInfoHidden>,
@@ -139,7 +74,6 @@ export function generateBotMove(
     opponent_has_just_moved_tam: boolean,
     ia_is_down_for_player_not_bot: boolean
 ): BotMove {
-    // the moves that are generated are the opponent's move, so I need a negation
     const pure_game_state = toPureGameState(game_state, opponent_has_just_moved_tam, ia_is_down_for_player_not_bot);
 
     const candidates = not_from_hand_candidates(pure_game_state);
