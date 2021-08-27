@@ -128,9 +128,10 @@ export function generateBotMove(
     while (true) {
         const mov = candidates[candidates.length * Math.random() | 0];
         if (mov.type === "InfAfterStep") { continue; }
-        return toBotMove(mov);
+        break;
+        //  return toBotMove(mov);
     }
-    /*
+    
     const all_coords: AbsoluteCoord[] = [
         ["A", "K"], ["A", "L"], ["A", "N"], ["A", "T"], ["A", "Z"], ["A", "X"], ["A", "C"], ["A", "M"], ["A", "P"],
         ["E", "K"], ["E", "L"], ["E", "N"], ["E", "T"], ["E", "Z"], ["E", "X"], ["E", "C"], ["E", "M"], ["E", "P"],
@@ -165,5 +166,4 @@ export function generateBotMove(
             }
         }
     } else throw new Error("the bot cannot handle this tam position")
-    */
 }
