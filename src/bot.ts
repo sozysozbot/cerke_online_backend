@@ -4,7 +4,7 @@ import {
     AfterHalfAcceptance,
     AbsoluteCoord,
 } from "cerke_online_api";
-import { apply_and_rotate, if_capture_get_coord, is_likely_to_succeed, is_safe_gak_tuk_newly_generated, is_very_likely_to_succeed, not_from_hand_candidates, PureGameState, is_victorious_hand, distance } from "cerke_verifier";
+import { apply_and_rotate, if_capture_get_coord, is_likely_to_succeed, is_safe_gak_tuk_newly_generated, is_very_likely_to_succeed, not_from_hand_candidates, PureGameState, is_victorious_hand, distance, coordEq } from "cerke_verifier";
 import { GameStateVisibleFromBot as GameStateWithSomeInfoHidden, Side } from "./type_gamestate";
 import * as cerke_verifier from "cerke_verifier";
 
@@ -62,16 +62,16 @@ function toBotMove(mov: cerke_verifier.PureOpponentMove): BotMove {
     } else if (mov.type === "NonTamMove") {
         return { t: "normal", dat: mov };
     } else if (mov.type === "InfAfterStep") {
-        return { 
-            t: "inf", 
-            dat: {type: "InfAfterStep", plannedDirection: mov.plannedDirection, src: mov.src, step: mov.step }, 
+        return {
+            t: "inf",
+            dat: { type: "InfAfterStep", plannedDirection: mov.plannedDirection, src: mov.src, step: mov.step },
             after: [
-                {type: "AfterHalfAcceptance", dest: distance(mov.plannedDirection, mov.step) > 0 ? null : mov.plannedDirection },
-                {type: "AfterHalfAcceptance", dest: distance(mov.plannedDirection, mov.step) > 1 ? null : mov.plannedDirection },
-                {type: "AfterHalfAcceptance", dest: distance(mov.plannedDirection, mov.step) > 2 ? null : mov.plannedDirection },
-                {type: "AfterHalfAcceptance", dest: distance(mov.plannedDirection, mov.step) > 3 ? null : mov.plannedDirection },
-                {type: "AfterHalfAcceptance", dest: distance(mov.plannedDirection, mov.step) > 4 ? null : mov.plannedDirection },
-                {type: "AfterHalfAcceptance", dest: distance(mov.plannedDirection, mov.step) > 5 ? null : mov.plannedDirection },
+                { type: "AfterHalfAcceptance", dest: distance(mov.plannedDirection, mov.step) > 0 ? null : mov.plannedDirection },
+                { type: "AfterHalfAcceptance", dest: distance(mov.plannedDirection, mov.step) > 1 ? null : mov.plannedDirection },
+                { type: "AfterHalfAcceptance", dest: distance(mov.plannedDirection, mov.step) > 2 ? null : mov.plannedDirection },
+                { type: "AfterHalfAcceptance", dest: distance(mov.plannedDirection, mov.step) > 3 ? null : mov.plannedDirection },
+                { type: "AfterHalfAcceptance", dest: distance(mov.plannedDirection, mov.step) > 4 ? null : mov.plannedDirection },
+                { type: "AfterHalfAcceptance", dest: distance(mov.plannedDirection, mov.step) > 5 ? null : mov.plannedDirection },
             ]
         }
     } else {
@@ -106,6 +106,7 @@ export function generateBotMove_dumb_random(
 // 2. 『負け確は避けよ』：取られづらくない駒で相手が役を作れて、それを避ける手があるなら、避ける手を指せ。
 // 3. 『激巫は行え』：取られづらい激巫を作ることができるなら、常にせよ。
 // 4. 『ただ取りは行え』：駒を取ったとしてもそれがプレイヤーに取り返されづらいなら、取る
+// 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
 // 
 // 序盤戦略：
 // ・初期位置の弓は、定弓にするか王の前に来るかをやっておけ。
@@ -188,6 +189,8 @@ export function generateBotMove(
             }
         }
 
+
+
         /*************************
         *  以上、強制発動戦略でした
         **************************/
@@ -196,7 +199,17 @@ export function generateBotMove(
     // If undetermined, just return a random move
     while (true) {
         const mov = candidates[candidates.length * Math.random() | 0];
-        if (mov.type === "InfAfterStep" || mov.type === "TamMove") { continue; }
+        if (mov.type === "TamMove") {
+            continue;
+        } else if (mov.type === "InfAfterStep") {
+            // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
+            if (mov.plannedDirection[0] === mov.src[0] && mov.plannedDirection[1] === mov.src[1]) { continue; }
+        } else if (mov.data.type === "FromHand") {
+            continue;
+        } else {
+            // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
+            if (mov.data.src[0] === mov.data.dest[0] && mov.data.src[1] === mov.data.dest[1]) { continue; }
+        }
         return toBotMove(mov);
     }
 }
