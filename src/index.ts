@@ -455,7 +455,11 @@ function analyzeAfterHalfAcceptanceAndUpdate(
     };
   }
 
-  const piece = getPiece(game_state, src)!;
+  const piece = getPiece(game_state, src);
+
+  if (piece === null) {
+    throw new Error(`While handling analyzeAfterHalfAcceptanceAndUpdate, expected to find a piece at position ${JSON.stringify(src)}, but did not find it; the game's state was ${JSON.stringify(game_state)}`);
+  }
 
   game_state.waiting_for_after_half_acceptance = null;
 
