@@ -523,7 +523,7 @@ function analyzeAfterHalfAcceptanceAndUpdate(
     } else {
       obj.move.finalResult = {
         dest: src, // failed; returning to the original
-        water_entry_ciurl,
+        // NO WATER ENTRY CIURL IF RETURNING TO THE ORIGINAL
       };
       obj.status = null;
     }
