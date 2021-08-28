@@ -1858,60 +1858,24 @@ function somepoll<T>(
   };
 }
 
-function whethertymok(req: Request, res: Response) {
-  console.log("\n sent to '/whethertymok'");
-  console.log(JSON.stringify(req.body, null, "\t"));
-
-  const authorization = req.headers.authorization;
-  if (authorization == null) {
-    res.send("null"); // FIXME: does not conform to RFC 6750
-    return;
-  } else if (authorization.slice(0, 7) !== "Bearer ") {
-    res.send("null"); // FIXME: does not conform to RFC 6750
-    return;
-  }
-
-  const token_ = authorization.slice(7);
-  const maybe_room_info = person_to_room.get(token_ as AccessToken);
-  if (typeof maybe_room_info === "undefined") {
-    res.send("null");
-    return;
-  }
-
-  console.log("from", req.headers.authorization);
-  let message: unknown = req.body.message;
-
-  if (typeof message !== "boolean") {
-    console.log("non-boolean message");
-    res.send("null");
-    return;
-  }
-
-  if (message == null) {
-    console.log("no message");
-    res.send("null");
-    return;
-  }
-
-  const game_state = room_to_gamestate.get(maybe_room_info.room_id)!;
+function receiveWhetherTyMokAndUpdate(message: boolean, room_info: RoomInfoWithPerspective):
+  null | { legal: true, is_first_move_my_move?: boolean | null } {
+  const game_state = room_to_gamestate.get(room_info.room_id)!;
   const final_obj = getLastMove(game_state);
 
   if (typeof final_obj === "undefined") {
     console.log("no last move");
-    res.send("null");
-    return;
+    return null;
   }
 
   if (final_obj.status == null) {
     console.log("no hand");
-    res.send("null");
-    return;
+    return null;
   }
 
   if (message === true) {
     // ty mok1
     final_obj.status = "ty mok1";
-    res.json({ legal: true });
     const log2RateProgressMap: { [P in Log2_Rate]: Log2_Rate } = {
       0: 1,
       1: 2,
@@ -1922,11 +1886,13 @@ function whethertymok(req: Request, res: Response) {
       6: 6, // does not go beyond x64, because the total score is 40
     };
     game_state.log2_rate = log2RateProgressMap[game_state.log2_rate];
+
+    return { legal: true };
   } else {
     final_obj.status = "ta xot1";
     if (game_state.season === 3) {
       console.log("the game has ended!");
-      res.json({ legal: true, is_first_move_my_move: null });
+      return { legal: true, is_first_move_my_move: null };
     } else if (game_state.season === 0) {
       game_state.season = 1;
     } else if (game_state.season === 1) {
@@ -1938,14 +1904,13 @@ function whethertymok(req: Request, res: Response) {
       throw new Error("should not happen");
     }
 
-    if (maybe_room_info.is_IA_down_for_me) {
+    if (room_info.is_IA_down_for_me) {
       game_state.IA_owner_s_score +=
         calculateHandsAndScore(game_state.f.hop1zuo1OfIAOwner).score *
         Math.pow(2, game_state.log2_rate);
       if (game_state.IA_owner_s_score >= 40) {
         console.log("the game has ended!");
-        res.json({ legal: true, is_first_move_my_move: null });
-        return;
+        return { legal: true, is_first_move_my_move: null }
       }
     } else {
       game_state.IA_owner_s_score -=
@@ -1953,8 +1918,7 @@ function whethertymok(req: Request, res: Response) {
         Math.pow(2, game_state.log2_rate);
       if (game_state.IA_owner_s_score < 0) {
         console.log("the game has ended!");
-        res.json({ legal: true, is_first_move_my_move: null });
-        return;
+        return { legal: true, is_first_move_my_move: null }
       }
     }
 
@@ -2035,11 +1999,56 @@ function whethertymok(req: Request, res: Response) {
       hop1zuo1OfNonIAOwner: [],
     };
 
-    res.json({
+    return {
       legal: true,
       is_first_move_my_move:
-        maybe_room_info.is_first_move_my_move[game_state.season],
-    });
+        room_info.is_first_move_my_move[game_state.season],
+    };
+  }
+}
+
+function whethertymok(req: Request, res: Response) {
+  console.log("\n sent to '/whethertymok'");
+  console.log(JSON.stringify(req.body, null, "\t"));
+
+  const authorization = req.headers.authorization;
+  if (authorization == null) {
+    res.send("null"); // FIXME: does not conform to RFC 6750
+    return;
+  } else if (authorization.slice(0, 7) !== "Bearer ") {
+    res.send("null"); // FIXME: does not conform to RFC 6750
+    return;
+  }
+
+  const token_ = authorization.slice(7);
+  const maybe_room_info = person_to_room.get(token_ as AccessToken);
+  if (typeof maybe_room_info === "undefined") {
+    res.send("null");
+    return;
+  }
+
+  console.log("from", req.headers.authorization);
+  let message: unknown = req.body.message;
+
+  if (typeof message !== "boolean") {
+    console.log("non-boolean message");
+    res.send("null");
+    return;
+  }
+
+  if (message == null) {
+    console.log("no message");
+    res.send("null");
+    return;
+  }
+
+  const ret = receiveWhetherTyMokAndUpdate(message, maybe_room_info);
+  if (ret) {
+    res.send("null");
+    return;
+  } else {
+    res.json(ret);
+    return;
   }
 }
 
