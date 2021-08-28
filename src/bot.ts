@@ -213,6 +213,10 @@ export function generateBotMove(
         filtered_candidates.push(bot_cand);
     }
 
+    // 何やっても負け確、とかだと多分指す手がなくなるので、じゃあその時は好き勝手に指す
+    if (filtered_candidates.length === 0) {
+        return toBotMove(candidates[candidates.length * Math.random() | 0]);
+    }
     while (true) {
         const bot_cand = filtered_candidates[filtered_candidates.length * Math.random() | 0];
         return toBotMove(bot_cand);
