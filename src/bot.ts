@@ -69,7 +69,7 @@ function toBotMove(mov: cerke_verifier.PureOpponentMove): BotMove {
     }
 }
 
-export function generateBotMove(
+export function generateBotMove_dumb_random(
     game_state: Readonly<GameStateWithSomeInfoHidden>,
     how_many_days_have_passed: number,
     opponent_has_just_moved_tam: boolean,
@@ -102,7 +102,7 @@ export function generateBotMove(
 // ・駒を取られたとき、それを判定無しで取り返せるなら、取り返しておけ。
 // ・初期位置の巫は、2つ前に出てみたりするといいかも。
 // ・初期位置の虎は、船を踏んで皇処に入ってみるといいかも。
-function generateBotMove_Smarter(
+export function generateBotMove(
     game_state: Readonly<GameStateWithSomeInfoHidden>,
     how_many_days_have_passed: number,
     opponent_has_just_moved_tam: boolean,

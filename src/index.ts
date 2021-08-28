@@ -30,7 +30,7 @@ import { Hand, ObtainablePieces, calculate_hands_and_score_from_pieces } from "c
 import * as t from "io-ts";
 import { pipe } from "fp-ts/lib/pipeable";
 import { fold } from "fp-ts/lib/Either";
-import { BotMove, generateBotMove } from "./bot";
+import { generateBotMove } from "./bot";
 import {
   Season, Log2_Rate, Field, Tuple4,
   Piece, NonTam2Piece, NonTam2PieceIAOwner, NonTam2PieceNonIAOwner, Side
