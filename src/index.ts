@@ -2055,7 +2055,7 @@ function whethertymok(req: Request, res: Response) {
   }
 
   const ret = receiveWhetherTyMokAndUpdate(message, maybe_room_info);
-  if (ret) {
+  if (!ret) {
     res.send("null");
     return;
   } else {
