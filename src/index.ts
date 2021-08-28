@@ -128,8 +128,6 @@ const AbsoluteCoordVerifier = t.tuple([
 
 const InfAfterStepVerifier = t.strict({
   type: t.literal("InfAfterStep"),
-  color: ColorVerifier,
-  prof: ProfessionVerifier,
   src: AbsoluteCoordVerifier,
   step: AbsoluteCoordVerifier,
   plannedDirection: AbsoluteCoordVerifier,
