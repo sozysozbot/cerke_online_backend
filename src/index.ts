@@ -825,6 +825,12 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
   // 3. Send back the move I just made
   const mov2 = getLastMove(game_state);
   if (typeof mov2 === "undefined") { throw new Error("Although the bot is supposed to have played something, I cannot locate it") }
+  
+  if (mov2.status === "not yet") {
+    // The bot is not yet smart enough to give ty mok1
+    mov2.status = "ta xot1";
+  }
+
   return { legal: true, content: mov2.move };
 }
 
