@@ -135,6 +135,7 @@ export function generateBotMove(
     const pure_game_state = toPureGameState(game_state, opponent_has_just_moved_tam, ia_is_down_for_player_not_bot); // プレイヤーの視点で盤面を生成
     const candidates = not_from_hand_candidates(pure_game_state); // これで生成されるのはOpponentの動き、つまり bot の動き
 
+    let filtered_candidates: cerke_verifier.PureOpponentMove[] = [];
     bot_cand_loop:
     for (const bot_cand of candidates) {
         /****************
@@ -189,27 +190,31 @@ export function generateBotMove(
             }
         }
 
-
+        if (bot_cand.type === "TamMove") {
+            // まあ皇の動きは当分読まなくていいわ
+            continue;
+        } else if (bot_cand.type === "InfAfterStep") {
+            // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
+            if (bot_cand.plannedDirection[0] === bot_cand.src[0] && bot_cand.plannedDirection[1] === bot_cand.src[1]) { continue; }
+        } else if (bot_cand.type === "NonTamMove") {
+            if (bot_cand.data.type === "FromHand") {
+                continue;
+            } else {
+                // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
+                if (bot_cand.data.src[0] === bot_cand.data.dest[0] && bot_cand.data.src[1] === bot_cand.data.dest[1]) { continue; }
+            }
+        }
 
         /*************************
         *  以上、強制発動戦略でした
         **************************/
+
+        // 生き延びた候補を収容
+        filtered_candidates.push(bot_cand);
     }
 
-    // If undetermined, just return a random move
     while (true) {
-        const mov = candidates[candidates.length * Math.random() | 0];
-        if (mov.type === "TamMove") {
-            continue;
-        } else if (mov.type === "InfAfterStep") {
-            // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
-            if (mov.plannedDirection[0] === mov.src[0] && mov.plannedDirection[1] === mov.src[1]) { continue; }
-        } else if (mov.data.type === "FromHand") {
-            continue;
-        } else {
-            // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
-            if (mov.data.src[0] === mov.data.dest[0] && mov.data.src[1] === mov.data.dest[1]) { continue; }
-        }
-        return toBotMove(mov);
+        const bot_cand = filtered_candidates[filtered_candidates.length * Math.random() | 0];
+        return toBotMove(bot_cand);
     }
 }
