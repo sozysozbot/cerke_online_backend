@@ -828,7 +828,13 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
   
   if (mov2.status === "not yet") {
     // The bot is not yet smart enough to give ty mok1
-    mov2.status = "ta xot1";
+    (async () => {
+      let time = (Math.random() * 5000) | 0;
+      console.log(`start waiting for ${time}ms to determine ty mok1/ta xot1`);
+      await new Promise(r => setTimeout(r, time));
+      mov2.status = "ta xot1";
+      console.log("finish waiting");
+    })();
   }
 
   return { legal: true, content: mov2.move };
