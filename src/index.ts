@@ -193,12 +193,6 @@ const Verifier = t.union([
 
 const PORT = process.env.PORT || 23564;
 const bodyParser = require("body-parser");
-const { Pool } = require("pg");
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: true,
-});
-
 const sha256_first7 = (str: string) => crypto.createHash('sha256').update(str, 'utf8').digest('hex').slice(0, 7);
 
 const { getPiece, setPiece } = (() => {
@@ -1806,18 +1800,6 @@ app
   .set("views", path.join(__dirname, "views"))
   .set("view engine", "ejs")
   .get("/", (req: Request, res: Response) => res.render("pages/index"))
-  .get("/db", async (req: Request, res: Response) => {
-    try {
-      const client = await pool.connect();
-      const result = await client.query("SELECT * FROM test_table");
-      const results = { results: result ? result.rows : null };
-      res.render("pages/db", results);
-      client.release();
-    } catch (err) {
-      console.error(err);
-      res.send("Error " + err);
-    }
-  })
   .post("/", main)
   .post("/mainpoll", somepoll("/mainpoll", replyToMainPoll))
   .post("/infpoll", somepoll("/infpoll", replyToInfPoll))
