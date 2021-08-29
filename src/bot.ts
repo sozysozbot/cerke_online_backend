@@ -210,8 +210,12 @@ export function generateBotMove(
                 // 有限で代用できるときも有限で代用しよう
                 return (eq(bot_cand.src, c.data.src) && eq(bot_cand.plannedDirection, c.data.dest))
             });
-
             if (better_option_exists) { continue; }
+
+            // 6マス以上飛ぶのは今回のルールでは無理です
+            if (distance(bot_cand.plannedDirection, bot_cand.step) > 5) {
+                continue;
+            }
 
         } else if (bot_cand.type === "NonTamMove") {
             if (bot_cand.data.type === "FromHand") {
