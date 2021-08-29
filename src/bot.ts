@@ -7,6 +7,7 @@ import {
 import { apply_and_rotate, if_capture_get_coord, is_likely_to_succeed, is_safe_gak_tuk_newly_generated, is_very_likely_to_succeed, not_from_hand_candidates, PureGameState, is_victorious_hand, distance, coordEq } from "cerke_verifier";
 import { GameStateVisibleFromBot as GameStateWithSomeInfoHidden, Side } from "./type_gamestate";
 import * as cerke_verifier from "cerke_verifier";
+import { knuthShuffle } from "knuth-shuffle";
 
 type Tuple6<T> = [T, T, T, T, T, T];
 export type BotMove = { t: "normal", dat: NormalMove } | { t: "inf", dat: InfAfterStep, after: Tuple6<AfterHalfAcceptance> };
@@ -134,7 +135,10 @@ export function generateBotMove(
 
 
     const pure_game_state = toPureGameState(game_state, opponent_has_just_moved_tam, ia_is_down_for_player_not_bot); // プレイヤーの視点で盤面を生成
-    const candidates = not_from_hand_candidates(pure_game_state); // これで生成されるのはOpponentの動き、つまり bot の動き
+
+    // これで生成されるのはOpponentの動き、つまり bot の動き
+    // シャッフルしておくことで、強制発動戦略で同じ手ばかり選ばれるのを防ぐことができる
+    const candidates = knuthShuffle(not_from_hand_candidates(pure_game_state)); 
 
     let filtered_candidates: cerke_verifier.PureOpponentMove[] = [];
     bot_cand_loop:
