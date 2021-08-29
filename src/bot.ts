@@ -138,7 +138,62 @@ export function generateBotMove(
 
     // これで生成されるのはOpponentの動き、つまり bot の動き
     // シャッフルしておくことで、強制発動戦略で同じ手ばかり選ばれるのを防ぐことができる
-    const candidates = knuthShuffle(not_from_hand_candidates(pure_game_state)); 
+    const raw_candidates = knuthShuffle(not_from_hand_candidates(pure_game_state));
+    const candidates = raw_candidates.filter(bot_cand => {
+        if (bot_cand.type === "TamMove") {
+            // 負け確回避とかなら読んでほしいので、除外しない
+            return true;
+        } else if (bot_cand.type === "InfAfterStep") {
+            // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
+            if (eq(bot_cand.plannedDirection, bot_cand.src)) { return false; }
+
+            // 6. 『無駄踏みは避けよ』：踏まずに同じ目的地に行く手段があるなら、踏むな。
+            const better_option_exists = raw_candidates.some(c => {
+                if (c.type === "TamMove") { return false; }
+                if (c.type === "InfAfterStep") { return false; }
+                if (c.data.type === "FromHand") { return false; }
+                // 有限で代用できるときも有限で代用しよう
+                return (eq(bot_cand.src, c.data.src) && eq(bot_cand.plannedDirection, c.data.dest))
+            });
+            if (better_option_exists) { return false; }
+
+            // 6マス以上飛ぶのは今回のルールでは無理です
+            if (distance(bot_cand.plannedDirection, bot_cand.step) > 5) {
+                return false;
+            }
+
+        } else if (bot_cand.type === "NonTamMove") {
+            if (bot_cand.data.type === "FromHand") {
+                // 負け確回避とかなら読んでほしいので、除外しない
+                return true;
+            } else {
+                // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
+                if (eq(bot_cand.data.src, bot_cand.data.dest)) { return false; }
+
+                if (bot_cand.data.type === "SrcStepDstFinite") {
+                    const src = bot_cand.data.src;
+                    const dest = bot_cand.data.dest;
+
+                    // 6. 『無駄踏みは避けよ』：踏まずに同じ目的地に行く手段があるなら、踏むな。
+                    const better_option_exists = raw_candidates.some(c => {
+                        if (c.type === "TamMove") { return false; }
+                        else if (c.type === "InfAfterStep") { return false; }
+                        else if (c.type === "NonTamMove") {
+                            if (c.data.type === "FromHand") { return false; }
+                            else if (c.data.type === "SrcDst") {
+                                return eq(src, c.data.src) && eq(dest, c.data.dest)
+                            } else { return false; }
+                        } else {
+                            const _should_not_reach_here: never = c;
+                            throw new Error("should not reach here")
+                        }
+                    });
+                    if (better_option_exists) { return false; }
+                }
+            }
+        }
+        return true;
+    });
 
     let filtered_candidates: cerke_verifier.PureOpponentMove[] = [];
     bot_cand_loop:
@@ -198,52 +253,10 @@ export function generateBotMove(
         if (bot_cand.type === "TamMove") {
             // まあ皇の動きは当分読まなくていいわ
             continue;
-        } else if (bot_cand.type === "InfAfterStep") {
-            // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
-            if (eq(bot_cand.plannedDirection, bot_cand.src)) { continue; }
-
-            // 6. 『無駄踏みは避けよ』：踏まずに同じ目的地に行く手段があるなら、踏むな。
-            const better_option_exists = candidates.some(c => {
-                if (c.type === "TamMove") { return false; }
-                if (c.type === "InfAfterStep") { return false; }
-                if (c.data.type === "FromHand") { return false; }
-                // 有限で代用できるときも有限で代用しよう
-                return (eq(bot_cand.src, c.data.src) && eq(bot_cand.plannedDirection, c.data.dest))
-            });
-            if (better_option_exists) { continue; }
-
-            // 6マス以上飛ぶのは今回のルールでは無理です
-            if (distance(bot_cand.plannedDirection, bot_cand.step) > 5) {
-                continue;
-            }
-
         } else if (bot_cand.type === "NonTamMove") {
+            // まあ手駒を打つ手も当分読まなくていいわ
             if (bot_cand.data.type === "FromHand") {
                 continue;
-            } else {
-                // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
-                if (eq(bot_cand.data.src, bot_cand.data.dest)) { continue; }
-
-                if (bot_cand.data.type === "SrcStepDstFinite") {
-                    const src = bot_cand.data.src;
-                    const dest = bot_cand.data.dest;
-
-                    // 6. 『無駄踏みは避けよ』：踏まずに同じ目的地に行く手段があるなら、踏むな。
-                    const better_option_exists = candidates.some(c => {
-                        if (c.type === "TamMove") { return false; }
-                        else if (c.type === "InfAfterStep") { return false; }
-                        else if (c.type === "NonTamMove") {
-                            if (c.data.type === "FromHand") { return false; }
-                            else if (c.data.type === "SrcDst") {
-                                return eq(src, c.data.src) && eq(dest, c.data.dest)
-                            } else { return false; }
-                        } else {
-                            const _should_not_reach_here: never = c;
-                            throw new Error("should not reach here")
-                        }
-                    });
-                    if (better_option_exists) { continue; }
-                }
             }
         }
 
