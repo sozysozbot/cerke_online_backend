@@ -105,8 +105,9 @@ export function generateBotMove_dumb_random(
 // 1. 『勝ち確は行え』：駒を取って役が新たに完成し、その手がやりやすいなら、必ずそれを行う。
 // 2. 『負け確は避けよ』：取られづらくない駒で相手が役を作れて、それを避ける手があるなら、避ける手を指せ。
 // 3. 『激巫は行え』：取られづらい激巫を作ることができるなら、常にせよ。
-// 4. 『ただ取りは行え』：駒を取ったとしてもそれがプレイヤーに取り返されづらいなら、取る
+// 4. 『ただ取りは行え』：駒を取ったとしてもそれがプレイヤーに取り返されづらい、かつ、その取る手そのものがやりづらくないなら、取る。
 // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
+// 6. 『無駄踏みは避けよ』：踏まずに同じ目的地に行く手段があるなら、踏むな。
 // 
 // 序盤戦略：
 // ・初期位置の弓は、定弓にするか王の前に来るかをやっておけ。
@@ -167,7 +168,7 @@ export function generateBotMove(
             return toBotMove(bot_cand);
         }
 
-        // 4. 『ただ取りは行え』：駒を取ったとしてもそれがプレイヤーに取り返されづらいなら、取る。
+        // 4. 『ただ取りは行え』：駒を取ったとしてもそれがプレイヤーに取り返されづらい、かつ、その取る手そのものがやりづらくないなら、取る。
         const maybe_capture_coord: AbsoluteCoord | null = if_capture_get_coord(bot_cand, pure_game_state);
         if (maybe_capture_coord) {
             const next: PureGameState = apply_and_rotate(bot_cand, pure_game_state);
@@ -177,15 +178,15 @@ export function generateBotMove(
             const take_back_exists = player_candidates.some(player_cand => {
                 const capture_coord2: AbsoluteCoord | null = if_capture_get_coord(player_cand, pure_game_state);
                 if (!capture_coord2) { return false; }
-                if (maybe_capture_coord[0] === capture_coord2[0] && maybe_capture_coord[1] === capture_coord2[1]) {
+                if (eq(maybe_capture_coord, capture_coord2)) {
                     // 取り返している
                     return true;
                 }
                 return false;
             });
 
-            // 取り返せないのであれば、指してみてもいいよね
-            if (!take_back_exists) {
+            // 取り返せない、かつ、やりづらくない手であれば、指してみてもいいよね
+            if (!take_back_exists && is_likely_to_succeed(bot_cand, pure_game_state)) {
                 return toBotMove(bot_cand)
             }
         }
@@ -195,13 +196,46 @@ export function generateBotMove(
             continue;
         } else if (bot_cand.type === "InfAfterStep") {
             // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
-            if (bot_cand.plannedDirection[0] === bot_cand.src[0] && bot_cand.plannedDirection[1] === bot_cand.src[1]) { continue; }
+            if (eq(bot_cand.plannedDirection, bot_cand.src)) { continue; }
+
+            // 6. 『無駄踏みは避けよ』：踏まずに同じ目的地に行く手段があるなら、踏むな。
+            const better_option_exists = candidates.some(c => {
+                if (c.type === "TamMove") { return false; }
+                if (c.type === "InfAfterStep") { return false; }
+                if (c.data.type === "FromHand") { return false; }
+                // 有限で代用できるときも有限で代用しよう
+                return (eq(bot_cand.src, c.data.src) && eq(bot_cand.plannedDirection, c.data.dest))
+            });
+
+            if (better_option_exists) { continue; }
+
         } else if (bot_cand.type === "NonTamMove") {
             if (bot_cand.data.type === "FromHand") {
                 continue;
             } else {
                 // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
-                if (bot_cand.data.src[0] === bot_cand.data.dest[0] && bot_cand.data.src[1] === bot_cand.data.dest[1]) { continue; }
+                if (eq(bot_cand.data.src, bot_cand.data.dest)) { continue; }
+
+                if (bot_cand.data.type === "SrcStepDstFinite") {
+                    const src = bot_cand.data.src;
+                    const dest = bot_cand.data.dest;
+
+                    // 6. 『無駄踏みは避けよ』：踏まずに同じ目的地に行く手段があるなら、踏むな。
+                    const better_option_exists = candidates.some(c => {
+                        if (c.type === "TamMove") { return false; }
+                        else if (c.type === "InfAfterStep") { return false; }
+                        else if (c.type === "NonTamMove") {
+                            if (c.data.type === "FromHand") { return false; }
+                            else if (c.data.type === "SrcDst") {
+                                return eq(src, c.data.src) && eq(dest, c.data.dest)
+                            } else { return false; }
+                        } else {
+                            const _should_not_reach_here: never = c;
+                            throw new Error("should not reach here")
+                        }
+                    });
+                    if (better_option_exists) { continue; }
+                }
             }
         }
 
@@ -221,4 +255,8 @@ export function generateBotMove(
         const bot_cand = filtered_candidates[filtered_candidates.length * Math.random() | 0];
         return toBotMove(bot_cand);
     }
+}
+
+function eq(a: AbsoluteCoord, b: AbsoluteCoord): boolean {
+    return a[0] === b[0] && a[1] === b[1];
 }
