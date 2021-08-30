@@ -103,26 +103,18 @@ export function generateBotMove_dumb_random(
 //   「入水判定も要らず、2以下の踏越え判定しか要らない」を「やりやすい(very likely to succeed)」と定義する。
 // 
 // 強制発動戦略：
-// 1. 『勝ち確は行え』：駒を取って役が新たに完成し、その手がやりやすいなら、必ずそれを行う。
-// 2. 『負け確は避けよ』：取られづらくない駒で相手が役を作れて、それを避ける手があるなら、避ける手を指せ。
-// 3. 『激巫は行え』：取られづらい激巫を作ることができるなら、常にせよ。
-// 4. 『ただ取りは行え』：駒を取ったとしてもそれがプレイヤーに取り返されづらい、かつ、その取る手そのものがやりづらくないなら、取る。
-// 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
-// 6. 『無駄踏みは避けよ』：踏まずに同じ目的地に行く手段があるなら、踏むな。
-// 
-// 序盤戦略：
-// ・初期位置の弓は、定弓にするか王の前に来るかをやっておけ。
-// ・初期位置が皇処端の兵は、斜め上に動いたり下がったりしておけ。
-// ・駒を取られたとき、それを判定無しで取り返せるなら、取り返しておけ。
-// ・初期位置の巫は、2つ前に出てみたりするといいかも。
-// ・初期位置の虎は、船を踏んで皇処に入ってみるといいかも。
+// 1. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
+// 2. 『無駄踏みは避けよ』：踏まずに同じ目的地に行く手段があるなら、踏むな。
+// 3. 『勝ち確は行え』：駒を取って役が新たに完成し、その手がやりやすいなら、必ずそれを行う。
+// 4. 『負け確は避けよ』：取られづらくない駒で相手が役を作れて、それを避ける手があるなら、避ける手を指せ。一方で、「手を指した後で、取られづらくない駒で相手が役を作れる」もダメだなぁ。
+// 5. 『激巫は行え』：取られづらい激巫を作ることができるなら、常にせよ。
+// 6. 『ただ取りは行え』：駒を取ったとしてもそれがプレイヤーに取り返されづらい、かつ、その取る手そのものがやりづらくないなら、取る。
 export function generateBotMove(
     game_state: Readonly<GameStateWithSomeInfoHidden>,
     how_many_days_have_passed: number,
     opponent_has_just_moved_tam: boolean,
     ia_is_down_for_player_not_bot: boolean
 ): { tactics: string, bot_move: BotMove } {
-    // 2. 『負け確は避けよ』：取られづらくない駒でプレイヤーが役を作れて、それを避ける手があるなら、避ける手を指せ。
     const in_danger = (() => {
         const pure_game_state_inverted = toPureGameState(game_state, opponent_has_just_moved_tam, !ia_is_down_for_player_not_bot); // botの視点で盤面を生成
         const candidates = not_from_hand_candidates(pure_game_state_inverted); // これで生成されるのはOpponentの動き、つまり bot の動き
@@ -145,10 +137,10 @@ export function generateBotMove(
             // ただし、opponent_has_just_moved_tam であるなら tam2 ty sak2 を防ぐべく除外する
             return !opponent_has_just_moved_tam;
         } else if (bot_cand.type === "InfAfterStep") {
-            // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
+            // 1. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
             if (eq(bot_cand.plannedDirection, bot_cand.src)) { return false; }
 
-            // 6. 『無駄踏みは避けよ』：踏まずに同じ目的地に行く手段があるなら、踏むな。
+            // 2. 『無駄踏みは避けよ』：踏まずに同じ目的地に行く手段があるなら、踏むな。
             const better_option_exists = raw_candidates.some(c => {
                 if (c.type === "TamMove") { return false; }
                 if (c.type === "InfAfterStep") { return false; }
@@ -168,14 +160,14 @@ export function generateBotMove(
                 // 負け確回避とかなら読んでほしいので、除外しない
                 return true;
             } else {
-                // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
+                // 1. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
                 if (eq(bot_cand.data.src, bot_cand.data.dest)) { return false; }
 
                 if (bot_cand.data.type === "SrcStepDstFinite") {
                     const src = bot_cand.data.src;
                     const dest = bot_cand.data.dest;
 
-                    // 6. 『無駄踏みは避けよ』：踏まずに同じ目的地に行く手段があるなら、踏むな。
+                    // 2. 『無駄踏みは避けよ』：踏まずに同じ目的地に行く手段があるなら、踏むな。
                     const better_option_exists = raw_candidates.some(c => {
                         if (c.type === "TamMove") { return false; }
                         else if (c.type === "InfAfterStep") { return false; }
@@ -203,32 +195,32 @@ export function generateBotMove(
          *  強制発動戦略 
          ****************/
 
-        // 1. 『勝ち確は行え』：駒を取って役が新たに完成し、その手がやりやすいなら、必ずそれを行う。
+        // 3. 『勝ち確は行え』：駒を取って役が新たに完成し、その手がやりやすいなら、必ずそれを行う。
         if (is_victorious_hand(bot_cand, pure_game_state) && is_very_likely_to_succeed(bot_cand, pure_game_state)) {
             return { tactics: "勝ち確", bot_move: toBotMove(bot_cand) };
         }
 
-        if (in_danger) {
-            // 2. 『負け確は避けよ』：取られづらくない駒でプレイヤーが役を作れて、それを避ける手があるなら、避ける手を指せ。
+        // 4. 『負け確は避けよ』：取られづらくない駒でプレイヤーが役を作れて、それを避ける手があるなら、避ける手を指せ。「手を指した後で、取られづらくない駒で相手が役を作れる」はダメだなぁ。
 
-            // 避ける手を指せていたと仮定して、次の状態を呼び出し、
-            const next: PureGameState = apply_and_rotate(bot_cand, pure_game_state);
-            const player_candidates = not_from_hand_candidates(next);
-            for (const player_cand of player_candidates) {
-                if (is_victorious_hand(player_cand, next) && is_likely_to_succeed(player_cand, next)) {
+        //　in_danger: 避ける手を指せていたと仮定して、次の状態を呼び出し、
+        // !in_danger: 次の状態を呼び出すと、今指したのが負けを確定させる手かどうかを調べることができる
+        const next: PureGameState = apply_and_rotate(bot_cand, pure_game_state);
+        const player_candidates = not_from_hand_candidates(next);
+        for (const player_cand of player_candidates) {
+            if (is_victorious_hand(player_cand, next) && is_likely_to_succeed(player_cand, next)) {
 
-                    // 避ける手を指せていなかったことが判明した以上、この bot_cand を破棄して別の手を試してみる
-                    continue bot_cand_loop;
-                }
+                //  in_danger: 避ける手を指せていなかったことが判明した以上、この bot_cand を破棄して別の手を試してみる
+                // !in_danger: 負けを確定させる手を指していた以上、この bot_cand を破棄して別の手を試してみる
+                continue bot_cand_loop;
             }
         }
-
-        // 3. 『激巫は行え』：取られづらい激巫を作ることができるなら、常にせよ。
+        
+        // 5. 『激巫は行え』：取られづらい激巫を作ることができるなら、常にせよ。
         if (is_safe_gak_tuk_newly_generated(bot_cand, pure_game_state)) {
             return { tactics: "激巫作成", bot_move: toBotMove(bot_cand) };
         }
 
-        // 4. 『ただ取りは行え』：駒を取ったとしてもそれがプレイヤーに取り返されづらい、かつ、その取る手そのものがやりづらくないなら、取る。
+        // 6. 『ただ取りは行え』：駒を取ったとしてもそれがプレイヤーに取り返されづらい、かつ、その取る手そのものがやりづらくないなら、取る。
         const maybe_capture_coord: AbsoluteCoord | null = if_capture_get_coord(bot_cand, pure_game_state);
         if (maybe_capture_coord) {
             const next: PureGameState = apply_and_rotate(bot_cand, pure_game_state);
@@ -275,7 +267,7 @@ export function generateBotMove(
     }
     while (true) {
         const bot_cand = filtered_candidates[filtered_candidates.length * Math.random() | 0];
-        return { tactics: in_danger ? "負けを避けるためにこう指してみるか" : "いい手が思いつかなかったので好き勝手に指す", bot_move: toBotMove(bot_cand)};
+        return { tactics: in_danger ? "負けを避けるためにこう指してみるか" : "いい手が思いつかなかったので、即負けしない範囲で好き勝手に指す", bot_move: toBotMove(bot_cand)};
     }
 }
 
