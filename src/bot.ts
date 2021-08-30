@@ -121,7 +121,7 @@ export function generateBotMove(
     how_many_days_have_passed: number,
     opponent_has_just_moved_tam: boolean,
     ia_is_down_for_player_not_bot: boolean
-): BotMove {
+): { tactics: string, bot_move: BotMove } {
     // 2. 『負け確は避けよ』：取られづらくない駒でプレイヤーが役を作れて、それを避ける手があるなら、避ける手を指せ。
     const in_danger = (() => {
         const pure_game_state_inverted = toPureGameState(game_state, opponent_has_just_moved_tam, !ia_is_down_for_player_not_bot); // botの視点で盤面を生成
@@ -204,7 +204,7 @@ export function generateBotMove(
 
         // 1. 『勝ち確は行え』：駒を取って役が新たに完成し、その手がやりやすいなら、必ずそれを行う。
         if (is_victorious_hand(bot_cand, pure_game_state) && is_very_likely_to_succeed(bot_cand, pure_game_state)) {
-            return toBotMove(bot_cand);
+            return { tactics: "勝ち確", bot_move: toBotMove(bot_cand) };
         }
 
         if (in_danger) {
@@ -224,7 +224,7 @@ export function generateBotMove(
 
         // 3. 『激巫は行え』：取られづらい激巫を作ることができるなら、常にせよ。
         if (is_safe_gak_tuk_newly_generated(bot_cand, pure_game_state)) {
-            return toBotMove(bot_cand);
+            return { tactics: "激巫作成", bot_move: toBotMove(bot_cand) };
         }
 
         // 4. 『ただ取りは行え』：駒を取ったとしてもそれがプレイヤーに取り返されづらい、かつ、その取る手そのものがやりづらくないなら、取る。
@@ -246,7 +246,7 @@ export function generateBotMove(
 
             // 取り返せない、かつ、やりづらくない手であれば、指してみてもいいよね
             if (!take_back_exists && is_likely_to_succeed(bot_cand, pure_game_state)) {
-                return toBotMove(bot_cand)
+                return { tactics: "ただ取り", bot_move: toBotMove(bot_cand) }
             }
         }
 
@@ -270,11 +270,11 @@ export function generateBotMove(
 
     // 何やっても負け確、とかだと多分指す手がなくなるので、じゃあその時は好き勝手に指す
     if (filtered_candidates.length === 0) {
-        return toBotMove(candidates[candidates.length * Math.random() | 0]);
+        return { tactics: "負け確なので好き勝手に指す", bot_move: toBotMove(candidates[candidates.length * Math.random() | 0]) };
     }
     while (true) {
         const bot_cand = filtered_candidates[filtered_candidates.length * Math.random() | 0];
-        return toBotMove(bot_cand);
+        return { tactics: "いい手が思いつかなかったので好き勝手に指す", bot_move: toBotMove(bot_cand)};
     }
 }
 

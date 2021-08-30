@@ -805,7 +805,7 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
   })();
 
   // 1. Generate the bot's move on the fly
-  const bot_move = generateBotMove(game_state, howManyDaysHavePassed(game_state), opponent_has_just_moved_tam, room_info.is_IA_down_for_me);
+  const { tactics, bot_move } = generateBotMove(game_state, howManyDaysHavePassed(game_state), opponent_has_just_moved_tam, room_info.is_IA_down_for_me);
 
 
   // 2. Update the `game_state` depending on the move I just generated.
@@ -829,7 +829,7 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
   // 3. Send back the move I just made
   const mov2 = getLastMove(game_state);
   if (typeof mov2 === "undefined") { throw new Error("Although the bot is supposed to have played something, I cannot locate it") }
-  
+
   if (mov2.status === "not yet") {
     // The bot is not yet smart enough to give ty mok1
     receiveWhetherTyMokAndUpdate(false, bot_perspective)
