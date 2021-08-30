@@ -141,8 +141,9 @@ export function generateBotMove(
     const raw_candidates = knuthShuffle(not_from_hand_candidates(pure_game_state));
     const candidates = raw_candidates.filter(bot_cand => {
         if (bot_cand.type === "TamMove") {
-            // 負け確回避とかなら読んでほしいので、除外しない
-            return true;
+            // 負け確回避とかなら読んでほしいので、候補に残す
+            // ただし、opponent_has_just_moved_tam であるなら tam2 ty sak2 を防ぐべく除外する
+            return !opponent_has_just_moved_tam;
         } else if (bot_cand.type === "InfAfterStep") {
             // 5. 『無駄足は避けよ』：そもそもスタートとゴールが同一地点の手ってほぼ指さなくない？
             if (eq(bot_cand.plannedDirection, bot_cand.src)) { return false; }
