@@ -15,6 +15,7 @@ import {
   Ret_RandomEntry,
   Ret_RandomPoll,
   Ret_RandomCancel,
+  Ret_MainPoll,
   SrcDst,
   SrcStepDstFinite,
   MoveToBePolled,
@@ -776,10 +777,6 @@ function replyToInfPoll(room_info: RoomInfoWithPerspective): Ret_InfPoll {
   return { legal: true, content: dat.move };
 }
 
-type Ret_MainPoll =
-  | { legal: true; content: MoveToBePolled | "not yet" }
-  | { legal: false; whyIllegal: string };
-
 function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   const mov = getLastMove(game_state);
@@ -835,7 +832,7 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
     receiveWhetherTyMokAndUpdate(false, bot_perspective)
   }
 
-  return { legal: true, content: mov2.move };
+  return { legal: true, message: tactics, content: mov2.move };
 }
 
 function analyzeValidMessageAndUpdate(
