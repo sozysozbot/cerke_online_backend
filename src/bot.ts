@@ -274,7 +274,7 @@ export function generateBotMove(
     }
     while (true) {
         const bot_cand = filtered_candidates[filtered_candidates.length * Math.random() | 0];
-        return { tactics: "いい手が思いつかなかったので好き勝手に指す", bot_move: toBotMove(bot_cand)};
+        return { tactics: in_danger ? "負けを避けるためにこう指してみるか" : "いい手が思いつかなかったので好き勝手に指す", bot_move: toBotMove(bot_cand)};
     }
 }
 
