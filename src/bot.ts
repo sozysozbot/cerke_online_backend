@@ -263,7 +263,7 @@ export function generateBotMove(
 
     // 何やっても負け確、とかだと多分指す手がなくなるので、じゃあその時は好き勝手に指す
     if (filtered_candidates.length === 0) {
-        return { tactics: "負け確なので好き勝手に指す", bot_move: toBotMove(candidates[candidates.length * Math.random() | 0]) };
+        return { tactics: "なにやっても負けそうなので好き勝手に指す", bot_move: toBotMove(candidates[candidates.length * Math.random() | 0]) };
     }
     while (true) {
         const bot_cand = filtered_candidates[filtered_candidates.length * Math.random() | 0];
