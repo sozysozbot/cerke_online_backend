@@ -378,6 +378,7 @@ function isInfAfterStep(a: {
     finalResult: null /* not yet known */ | {
       dest: AbsoluteCoord;
       water_entry_ciurl?: Ciurl;
+      thwarted_by_failing_water_entry_ciurl: Ciurl | null
     };
   };
 } {
@@ -433,6 +434,7 @@ function analyzeAfterHalfAcceptanceAndUpdate(
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   const { src, step } = game_state.waiting_for_after_half_acceptance!;
   if (msg.dest == null) {
+    // The player intends to pass, possibly because of dissatisfaction against the stepping_ciurl
     const obj = getLastMove(game_state);
     if (typeof obj === "undefined") {
       return { legal: false, whyIllegal: "there was no last move" };
@@ -444,6 +446,7 @@ function analyzeAfterHalfAcceptanceAndUpdate(
 
     obj.move.finalResult = {
       dest: src,
+      thwarted_by_failing_water_entry_ciurl: null // The player intends to pass. It was not thwarted by failing water_entry_ciurl.
     };
 
     ifStepTamEditScore(game_state, step, room_info);
@@ -480,6 +483,7 @@ function analyzeAfterHalfAcceptanceAndUpdate(
 
     final_obj.move.finalResult = {
       dest: msg.dest,
+      thwarted_by_failing_water_entry_ciurl: null /* The src is water, or the profession is Nuak1; hence it is impossible that the move was thwarted by the failure of water_entry_ciurl */
     };
 
     final_obj.status = hand_is_made ? "not yet" : null;
@@ -521,6 +525,7 @@ function analyzeAfterHalfAcceptanceAndUpdate(
       obj.move.finalResult = {
         dest: msg.dest,
         water_entry_ciurl,
+        thwarted_by_failing_water_entry_ciurl: null /* water entry is successful. Hence it is not thwarted. */
       };
       if (hand_is_made) {
         obj.status = "not yet";
@@ -529,6 +534,7 @@ function analyzeAfterHalfAcceptanceAndUpdate(
       obj.move.finalResult = {
         dest: src, // failed; returning to the original
         // NO WATER ENTRY CIURL IF RETURNING TO THE ORIGINAL
+        thwarted_by_failing_water_entry_ciurl: water_entry_ciurl // it IS thwarted by failing water_entry_ciurl
       };
       obj.status = null;
     }
@@ -543,7 +549,7 @@ function analyzeAfterHalfAcceptanceAndUpdate(
 
     ifStepTamEditScore(game_state, step, room_info);
     return ans;
-  } else {
+  } else { // the destination is not water
     const {
       hand_is_made,
     } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
@@ -560,6 +566,7 @@ function analyzeAfterHalfAcceptanceAndUpdate(
 
     obj.move.finalResult = {
       dest: msg.dest,
+      thwarted_by_failing_water_entry_ciurl: null /* not thwarted: the destination is not water */
     };
 
     if (hand_is_made) {
