@@ -3,6 +3,7 @@ import {
     InfAfterStep,
     AfterHalfAcceptance,
     AbsoluteCoord,
+    TacticsKey,
 } from "cerke_online_api";
 import { apply_and_rotate, if_capture_get_coord, is_likely_to_succeed, is_safe_gak_tuk_newly_generated, is_very_likely_to_succeed, not_from_hand_candidates, PureGameState, is_victorious_hand, distance, coordEq } from "cerke_verifier";
 import { GameStateVisibleFromBot as GameStateWithSomeInfoHidden, Side } from "./type_gamestate";
@@ -114,7 +115,7 @@ export function generateBotMove(
     how_many_days_have_passed: number,
     opponent_has_just_moved_tam: boolean,
     ia_is_down_for_player_not_bot: boolean
-): { tactics: string, bot_move: BotMove } {
+): { tactics: TacticsKey, bot_move: BotMove } {
     const in_danger = (() => {
         const pure_game_state_inverted = toPureGameState(game_state, opponent_has_just_moved_tam, !ia_is_down_for_player_not_bot); // botの視点で盤面を生成
         const candidates = not_from_hand_candidates(pure_game_state_inverted); // これで生成されるのはOpponentの動き、つまり bot の動き
@@ -197,7 +198,7 @@ export function generateBotMove(
 
         // 3. 『勝ち確は行え』：駒を取って役が新たに完成し、その手がやりやすいなら、必ずそれを行う。
         if (is_victorious_hand(bot_cand, pure_game_state) && is_very_likely_to_succeed(bot_cand, pure_game_state)) {
-            return { tactics: "勝ち確", bot_move: toBotMove(bot_cand) };
+            return { tactics: "victory_almost_certain", bot_move: toBotMove(bot_cand) };
         }
 
         // 4. 『負け確は避けよ』：取られづらくない駒でプレイヤーが役を作れて、それを避ける手があるなら、避ける手を指せ。「手を指した後で、取られづらくない駒で相手が役を作れる」はダメだなぁ。
@@ -217,7 +218,7 @@ export function generateBotMove(
         
         // 5. 『激巫は行え』：取られづらい激巫を作ることができるなら、常にせよ。
         if (is_safe_gak_tuk_newly_generated(bot_cand, pure_game_state)) {
-            return { tactics: "激巫作成", bot_move: toBotMove(bot_cand) };
+            return { tactics: "strengthened_shaman", bot_move: toBotMove(bot_cand) };
         }
 
         // 6. 『ただ取りは行え』：駒を取ったとしてもそれがプレイヤーに取り返されづらい、かつ、その取る手そのものがやりづらくないなら、取る。
@@ -239,7 +240,7 @@ export function generateBotMove(
 
             // 取り返せない、かつ、やりづらくない手であれば、指してみてもいいよね
             if (!take_back_exists && is_likely_to_succeed(bot_cand, pure_game_state)) {
-                return { tactics: "ただ取り", bot_move: toBotMove(bot_cand) }
+                return { tactics: "free_lunch", bot_move: toBotMove(bot_cand) }
             }
         }
 
@@ -263,11 +264,11 @@ export function generateBotMove(
 
     // 何やっても負け確、とかだと多分指す手がなくなるので、じゃあその時は好き勝手に指す
     if (filtered_candidates.length === 0) {
-        return { tactics: "なにやっても負けそうなので好き勝手に指す", bot_move: toBotMove(candidates[candidates.length * Math.random() | 0]) };
+        return { tactics: "loss_almost_certain", bot_move: toBotMove(candidates[candidates.length * Math.random() | 0]) };
     }
     while (true) {
         const bot_cand = filtered_candidates[filtered_candidates.length * Math.random() | 0];
-        return { tactics: in_danger ? "負けを避けるためにこう指してみるか" : "いい手が思いつかなかったので、即負けしない範囲で好き勝手に指す", bot_move: toBotMove(bot_cand)};
+        return { tactics: in_danger ? "avoid_defeat" : "neutral", bot_move: toBotMove(bot_cand)};
     }
 }
 
