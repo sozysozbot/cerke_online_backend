@@ -41,13 +41,15 @@ import {
 import Discord from "discord.js";
 const client = new Discord.Client();
 client.once('ready', () => {
-  (client.channels.cache.get('716511640190713921')! as Discord.TextChannel).send('cerke online discord notifier is Ready!')
+  // channel #バックエンド起動ログ
+  (client.channels.cache.get('900419722313601114')! as Discord.TextChannel).send('cerke online discord notifier is Ready!')
 });
 
 client.login(process.env.DISCORD_NOTIFIER_TOKEN);
 
-const publicly_announce = (msg: string) => {
-  (client.channels.cache.get('716511640190713921')! as Discord.TextChannel).send(msg)
+const publicly_announce_matching = (msg: string) => {
+  // channel #本番環境マッチングログ
+  (client.channels.cache.get('900417626243731537')! as Discord.TextChannel).send(msg)
 };
 
 
@@ -1359,7 +1361,7 @@ const vs_cpu_entrance = (() => {
     console.log(
       `Opened a room ${room_id} to be used by a player ${newToken} and a bot ${bot_token}.`,
     );
-    publicly_announce(
+    publicly_announce_matching(
       `Opened a room ${sha256_first7(room_id)} to be used by a player ${sha256_first7(newToken)} and a bot ${sha256_first7(bot_token)}.`,
     );
 
@@ -1367,7 +1369,7 @@ const vs_cpu_entrance = (() => {
       `${is_first_turn_newToken_turn[0 /* spring */] ? newToken : bot_token
       } moves first.`,
     );
-    publicly_announce(
+    publicly_announce_matching(
       `${is_first_turn_newToken_turn[0 /* spring */] ? sha256_first7(newToken) : sha256_first7(bot_token)
       } moves first.`,
     );
@@ -1376,7 +1378,7 @@ const vs_cpu_entrance = (() => {
       `IA is down, from the perspective of ${is_IA_down_for_newToken ? newToken : bot_token
       }.`,
     );
-    publicly_announce(
+    publicly_announce_matching(
       `IA is down, from the perspective of ${is_IA_down_for_newToken ? sha256_first7(newToken) : sha256_first7(bot_token)
       }.`,
     );
@@ -1480,7 +1482,7 @@ const random_entrance = (() => {
             // not yet assigned a room, but is in the waiting list
             waiting_list.delete(access_token);
             console.log(`Canceled ${access_token}.`);
-            publicly_announce(`Canceled ${sha256_first7(access_token)}. 
+            publicly_announce_matching(`Canceled ${sha256_first7(access_token)}. 
             The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`);
             return {
               legal: true,
@@ -1507,7 +1509,7 @@ const random_entrance = (() => {
     const newToken: AccessToken = uuidv4() as AccessToken;
     for (let token of waiting_list) {
       waiting_list.delete(token);
-      publicly_announce(`The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`);
+      publicly_announce_matching(`The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`);
       const room_id = open_a_room(token, newToken);
 
       const is_first_turn_newToken_turn: Tuple4<boolean> = [
@@ -1740,7 +1742,7 @@ const random_entrance = (() => {
       console.log(
         `Opened a room ${room_id} to be used by ${newToken} and ${token}.`,
       );
-      publicly_announce(
+      publicly_announce_matching(
         `Opened a room ${sha256_first7(room_id)} to be used by ${sha256_first7(newToken)} and ${sha256_first7(token)}.`,
       );
 
@@ -1748,7 +1750,7 @@ const random_entrance = (() => {
         `${is_first_turn_newToken_turn[0 /* spring */] ? newToken : token
         } moves first.`,
       );
-      publicly_announce(
+      publicly_announce_matching(
         `${is_first_turn_newToken_turn[0 /* spring */] ? sha256_first7(newToken) : sha256_first7(token)
         } moves first.`,
       );
@@ -1757,7 +1759,7 @@ const random_entrance = (() => {
         `IA is down, from the perspective of ${is_IA_down_for_newToken ? newToken : token
         }.`,
       );
-      publicly_announce(
+      publicly_announce_matching(
         `IA is down, from the perspective of ${is_IA_down_for_newToken ? sha256_first7(newToken) : sha256_first7(token)
         }.`,
       );
@@ -1776,7 +1778,7 @@ const random_entrance = (() => {
     console.log(
       `Cannot find a partner for ${newToken}, who will thus be put in the waiting list.`,
     );
-    publicly_announce(
+    publicly_announce_matching(
       `Cannot find a partner for ${sha256_first7(newToken)}, who will thus be put in the waiting list.
       The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`,
     );
@@ -2112,7 +2114,7 @@ var room_to_gamestate = new Map<RoomId, GameState>();
 
 function open_a_room(token1: AccessToken, token2: AccessToken): RoomId {
   console.log("A match between", token1, "and", token2, "will begin.");
-  publicly_announce(`A match between ${sha256_first7(token1)} and ${sha256_first7(token2)} will begin.`)
+  publicly_announce_matching(`A match between ${sha256_first7(token1)} and ${sha256_first7(token2)} will begin.`)
 
   // FIXME
   return uuidv4() as RoomId;
@@ -2120,7 +2122,7 @@ function open_a_room(token1: AccessToken, token2: AccessToken): RoomId {
 
 function open_a_room_against_bot(token1: BotToken, token2: AccessToken): RoomId {
   console.log("A match between a bot", token1, "and a player", token2, "will begin.");
-  publicly_announce(`A match between a bot ${sha256_first7(token1)} and a player ${sha256_first7(token2)} will begin.`)
+  publicly_announce_matching(`A match between a bot ${sha256_first7(token1)} and a player ${sha256_first7(token2)} will begin.`)
 
   // FIXME
   return uuidv4() as RoomId;
