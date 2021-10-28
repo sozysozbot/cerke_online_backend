@@ -47,9 +47,15 @@ client.once('ready', () => {
 
 client.login(process.env.DISCORD_NOTIFIER_TOKEN);
 
-const publicly_announce_matching = (msg: string) => {
-  // channel #本番環境マッチングログ
-  (client.channels.cache.get('900417626243731537')! as Discord.TextChannel).send(msg)
+const publicly_announce_matching = (msg: string, is_staging: boolean) => {
+  if (is_staging) {
+    // channel #デバッグ環境マッチングログ
+    (client.channels.cache.get('902952289378115625')! as Discord.TextChannel).send(msg)
+
+  } else {
+    // channel #本番環境マッチングログ
+    (client.channels.cache.get('900417626243731537')! as Discord.TextChannel).send(msg)
+  }
 };
 
 
@@ -1066,69 +1072,17 @@ function analyzeMessageAndUpdate(
 }
 
 const vs_cpu_entrance = (() => {
-  const VsCpuEntrancePollVerifier = t.strict({
-    access_token: t.string,
-  });
-
-  function vs_cpu_entrance_poll(req: Request, res: Response) {
-    const onLeft = (errors: t.Errors): Ret_RandomPoll => ({
-      legal: false,
-      whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
-    });
-
-    return res.json(
-      pipe(
-        VsCpuEntrancePollVerifier.decode(req.body),
-        fold(onLeft, function (msg: { access_token: string }): Ret_RandomPoll {
-          const access_token = msg.access_token as AccessToken;
-          const maybe_room_id:
-            | RoomInfoWithPerspective
-            | undefined = person_to_room.get(access_token);
-          if (typeof maybe_room_id !== "undefined") {
-            return {
-              legal: true,
-              ret: {
-                state: "let_the_game_begin",
-                access_token: msg.access_token,
-                is_first_move_my_move:
-                  maybe_room_id.is_first_move_my_move[0 /* spring */],
-                is_IA_down_for_me: maybe_room_id.is_IA_down_for_me,
-              },
-            };
-          } else if (waiting_list.has(access_token)) {
-            // not yet assigned a room, but is in the waiting list
-            return {
-              legal: true,
-              ret: {
-                state: "in_waiting_list",
-                access_token: msg.access_token,
-              },
-            };
-          } else {
-            // You sent me a poll, but  I don't know you. Hmm...
-            return {
-              legal: false,
-              whyIllegal: `Invalid access token: 
-            I don't know your access token, which is ${access_token}.
-            Please reapply by sending an empty object to random/entry .`,
-            };
-
-            // FIXME: in the future, I might let you reapply. This will of course change your UUID.
-          }
-        }),
-      ),
-    );
+  function vs_cpu_entrance_entrance(o: { is_staging: boolean }) {
+    return (_req: Request, res: Response) => {
+      res.json(vsCpuEntry(o.is_staging));
+    }
   }
 
-  function vs_cpu_entrance_entrance(_req: Request, res: Response) {
-    res.json(vsCpuEntry());
-  }
-
-  function vsCpuEntry(): Ret_VsCpuEntry {
+  function vsCpuEntry(is_staging: boolean): Ret_VsCpuEntry {
     const newToken: AccessToken = uuidv4() as AccessToken;
     const bot_token: BotToken = uuidv4() as BotToken;
 
-    const room_id = open_a_room_against_bot(bot_token, newToken);
+    const room_id = open_a_room_against_bot(bot_token, newToken, is_staging);
 
     const is_first_turn_newToken_turn: Tuple4<boolean> = [
       Math.random() < 0.5,
@@ -1363,6 +1317,7 @@ const vs_cpu_entrance = (() => {
     );
     publicly_announce_matching(
       `Opened a room ${sha256_first7(room_id)} to be used by a player ${sha256_first7(newToken)} and a bot ${sha256_first7(bot_token)}.`,
+      is_staging
     );
 
     console.log(
@@ -1372,6 +1327,7 @@ const vs_cpu_entrance = (() => {
     publicly_announce_matching(
       `${is_first_turn_newToken_turn[0 /* spring */] ? sha256_first7(newToken) : sha256_first7(bot_token)
       } moves first.`,
+      is_staging
     );
 
     console.log(
@@ -1381,6 +1337,7 @@ const vs_cpu_entrance = (() => {
     publicly_announce_matching(
       `IA is down, from the perspective of ${is_IA_down_for_newToken ? sha256_first7(newToken) : sha256_first7(bot_token)
       }.`,
+      is_staging
     );
 
     // exit after finding the first person
@@ -1395,7 +1352,6 @@ const vs_cpu_entrance = (() => {
 
   return {
     entrance: vs_cpu_entrance_entrance,
-    poll: vs_cpu_entrance_poll,
   };
 })();
 
@@ -1407,110 +1363,115 @@ const random_entrance = (() => {
   const RandomEntranceCancelVerifier = t.strict({
     access_token: t.string,
   });
-  function random_entrance_poll(req: Request, res: Response) {
-    const onLeft = (errors: t.Errors): Ret_RandomPoll => ({
-      legal: false,
-      whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
-    });
+  function random_entrance_poll(o: { is_staging: boolean }) {
+    return (req: Request, res: Response) => {
+      const onLeft = (errors: t.Errors): Ret_RandomPoll => ({
+        legal: false,
+        whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
+      });
 
-    return res.json(
-      pipe(
-        RandomEntrancePollVerifier.decode(req.body),
-        fold(onLeft, function (msg: { access_token: string }): Ret_RandomPoll {
-          const access_token = msg.access_token as AccessToken;
-          const maybe_room_id:
-            | RoomInfoWithPerspective
-            | undefined = person_to_room.get(access_token);
-          if (typeof maybe_room_id !== "undefined") {
-            return {
-              legal: true,
-              ret: {
-                state: "let_the_game_begin",
-                access_token: msg.access_token,
-                is_first_move_my_move:
-                  maybe_room_id.is_first_move_my_move[0 /* spring */],
-                is_IA_down_for_me: maybe_room_id.is_IA_down_for_me,
-              },
-            };
-          } else if (waiting_list.has(access_token)) {
-            // not yet assigned a room, but is in the waiting list
-            return {
-              legal: true,
-              ret: {
-                state: "in_waiting_list",
-                access_token: msg.access_token,
-              },
-            };
-          } else {
-            // You sent me a poll, but  I don't know you. Hmm...
-            return {
-              legal: false,
-              whyIllegal: `Invalid access token: 
+      return res.json(
+        pipe(
+          RandomEntrancePollVerifier.decode(req.body),
+          fold(onLeft, function (msg: { access_token: string }): Ret_RandomPoll {
+            const access_token = msg.access_token as AccessToken;
+            const maybe_room_id:
+              | RoomInfoWithPerspective
+              | undefined = person_to_room.get(access_token);
+            if (typeof maybe_room_id !== "undefined") {
+              return {
+                legal: true,
+                ret: {
+                  state: "let_the_game_begin",
+                  access_token: msg.access_token,
+                  is_first_move_my_move:
+                    maybe_room_id.is_first_move_my_move[0 /* spring */],
+                  is_IA_down_for_me: maybe_room_id.is_IA_down_for_me,
+                },
+              };
+            } else if (waiting_list.has(access_token)) {
+              // not yet assigned a room, but is in the waiting list
+              return {
+                legal: true,
+                ret: {
+                  state: "in_waiting_list",
+                  access_token: msg.access_token,
+                },
+              };
+            } else {
+              // You sent me a poll, but  I don't know you. Hmm...
+              return {
+                legal: false,
+                whyIllegal: `Invalid access token: 
             I don't know your access token, which is ${access_token}.
             Please reapply by sending an empty object to random/entry .`,
-            };
+              };
 
-            // FIXME: in the future, I might let you reapply. This will of course change your UUID.
-          }
-        }),
-      ),
-    );
+              // FIXME: in the future, I might let you reapply. This will of course change your UUID.
+            }
+          }),
+        ),
+      );
+    }
+  }
+  function random_entrance_cancel(o: { is_staging: boolean }) {
+    return (req: Request, res: Response) => {
+      const onLeft = (errors: t.Errors): Ret_RandomCancel => ({
+        legal: false,
+        whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
+      });
+
+      return res.json(
+        pipe(
+          RandomEntranceCancelVerifier.decode(req.body),
+          fold(onLeft, function (msg: { access_token: string }): Ret_RandomCancel {
+            const access_token = msg.access_token as AccessToken;
+            const maybe_room_id:
+              | RoomInfoWithPerspective
+              | undefined = person_to_room.get(access_token);
+
+            // you already have a room. you cannot cancel
+            if (typeof maybe_room_id !== "undefined") {
+              return {
+                legal: true,
+                cancellable: false,
+              };
+            } else if (waiting_list.has(access_token)) {
+              // not yet assigned a room, but is in the waiting list
+              waiting_list.delete(access_token);
+              console.log(`Canceled ${access_token}.`);
+              publicly_announce_matching(`Canceled ${sha256_first7(access_token)}. 
+            The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`, o.is_staging);
+              return {
+                legal: true,
+                cancellable: true,
+              };
+            } else {
+              // You told me to cancel, but I don't know you. Hmm...
+              // well, at least you can cancel
+              return {
+                legal: true,
+                cancellable: true,
+              };
+            }
+          }),
+        ),
+      );
+    }
   }
 
-  function random_entrance_cancel(req: Request, res: Response) {
-    const onLeft = (errors: t.Errors): Ret_RandomCancel => ({
-      legal: false,
-      whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
-    });
-
-    return res.json(
-      pipe(
-        RandomEntranceCancelVerifier.decode(req.body),
-        fold(onLeft, function (msg: { access_token: string }): Ret_RandomCancel {
-          const access_token = msg.access_token as AccessToken;
-          const maybe_room_id:
-            | RoomInfoWithPerspective
-            | undefined = person_to_room.get(access_token);
-
-          // you already have a room. you cannot cancel
-          if (typeof maybe_room_id !== "undefined") {
-            return {
-              legal: true,
-              cancellable: false,
-            };
-          } else if (waiting_list.has(access_token)) {
-            // not yet assigned a room, but is in the waiting list
-            waiting_list.delete(access_token);
-            console.log(`Canceled ${access_token}.`);
-            publicly_announce_matching(`Canceled ${sha256_first7(access_token)}. 
-            The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`);
-            return {
-              legal: true,
-              cancellable: true,
-            };
-          } else {
-            // You told me to cancel, but I don't know you. Hmm...
-            // well, at least you can cancel
-            return {
-              legal: true,
-              cancellable: true,
-            };
-          }
-        }),
-      ),
-    );
+  function random_entrance_entrance(o: { is_staging: boolean }) {
+    return (_req: Request, res: Response) => {
+      res.json(randomEntry(o));
+    }
   }
 
-  function random_entrance_entrance(_req: Request, res: Response) {
-    res.json(randomEntry());
-  }
-
-  function randomEntry(): Ret_RandomEntry {
+  function randomEntry(o: { is_staging: boolean }): Ret_RandomEntry {
     const newToken: AccessToken = uuidv4() as AccessToken;
     for (let token of waiting_list) {
       waiting_list.delete(token);
-      publicly_announce_matching(`The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`);
-      const room_id = open_a_room(token, newToken);
+      publicly_announce_matching(`The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`, o.is_staging);
+      const room_id = open_a_room(token, newToken, o.is_staging);
 
       const is_first_turn_newToken_turn: Tuple4<boolean> = [
         Math.random() < 0.5,
@@ -1744,6 +1705,7 @@ const random_entrance = (() => {
       );
       publicly_announce_matching(
         `Opened a room ${sha256_first7(room_id)} to be used by ${sha256_first7(newToken)} and ${sha256_first7(token)}.`,
+        o.is_staging
       );
 
       console.log(
@@ -1753,6 +1715,7 @@ const random_entrance = (() => {
       publicly_announce_matching(
         `${is_first_turn_newToken_turn[0 /* spring */] ? sha256_first7(newToken) : sha256_first7(token)
         } moves first.`,
+        o.is_staging
       );
 
       console.log(
@@ -1762,6 +1725,7 @@ const random_entrance = (() => {
       publicly_announce_matching(
         `IA is down, from the perspective of ${is_IA_down_for_newToken ? sha256_first7(newToken) : sha256_first7(token)
         }.`,
+        o.is_staging
       );
 
       // exit after finding the first person
@@ -1781,6 +1745,7 @@ const random_entrance = (() => {
     publicly_announce_matching(
       `Cannot find a partner for ${sha256_first7(newToken)}, who will thus be put in the waiting list.
       The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`,
+      o.is_staging
     );
     return {
       state: "in_waiting_list",
@@ -1832,11 +1797,14 @@ app
       main(req, res);
     })();
   })
-  .post("/random/entry", random_entrance.entrance)
-  .post("/random/poll", random_entrance.poll)
-  .post("/random/cancel", random_entrance.cancel)
-  .post("/vs_cpu/entry", vs_cpu_entrance.entrance)
-  .post("/vs_cpu/poll", vs_cpu_entrance.poll)
+  .post("/random/entry", random_entrance.entrance({ is_staging: false }))
+  .post("/random/poll", random_entrance.poll({ is_staging: false }))
+  .post("/random/cancel", random_entrance.cancel({ is_staging: false }))
+  .post("/random/entry/staging", random_entrance.entrance({ is_staging: true }))
+  .post("/random/poll/staging", random_entrance.poll({ is_staging: true }))
+  .post("/random/cancel/staging", random_entrance.cancel({ is_staging: true }))
+  .post("/vs_cpu/entry", vs_cpu_entrance.entrance({ is_staging: false }))
+  .post("/vs_cpu/entry/staging", vs_cpu_entrance.entrance({ is_staging: true }))
   .listen(PORT, () => console.log(`Listening on ${PORT}`));
 
 function somepoll<T>(
@@ -2112,17 +2080,17 @@ var bot_to_room = new Map<BotToken, RoomInfoWithPerspective>();
 var room_to_bot = new Map<RoomId, BotToken>();
 var room_to_gamestate = new Map<RoomId, GameState>();
 
-function open_a_room(token1: AccessToken, token2: AccessToken): RoomId {
+function open_a_room(token1: AccessToken, token2: AccessToken, is_staging: boolean): RoomId {
   console.log("A match between", token1, "and", token2, "will begin.");
-  publicly_announce_matching(`A match between ${sha256_first7(token1)} and ${sha256_first7(token2)} will begin.`)
+  publicly_announce_matching(`A match between ${sha256_first7(token1)} and ${sha256_first7(token2)} will begin.`, is_staging)
 
   // FIXME
   return uuidv4() as RoomId;
 }
 
-function open_a_room_against_bot(token1: BotToken, token2: AccessToken): RoomId {
+function open_a_room_against_bot(token1: BotToken, token2: AccessToken, is_staging: boolean): RoomId {
   console.log("A match between a bot", token1, "and a player", token2, "will begin.");
-  publicly_announce_matching(`A match between a bot ${sha256_first7(token1)} and a player ${sha256_first7(token2)} will begin.`)
+  publicly_announce_matching(`A match between a bot ${sha256_first7(token1)} and a player ${sha256_first7(token2)} will begin.`, is_staging)
 
   // FIXME
   return uuidv4() as RoomId;
