@@ -33,9 +33,10 @@ import { pipe } from "fp-ts/lib/pipeable";
 import { fold } from "fp-ts/lib/Either";
 import { generateBotMove } from "./bot";
 import {
-  Season, Log2_Rate, Field, Tuple4,
+  Field, Tuple4,
   Piece, NonTam2Piece, NonTam2PieceIAOwner, NonTam2PieceNonIAOwner, Side
 } from "./type_gamestate";
+import { Season, Log2_Rate } from "cerke_online_api"
 
 // For the notifier. I don't think it should live in index.ts, but for now let's just do it
 import Discord from "discord.js";
