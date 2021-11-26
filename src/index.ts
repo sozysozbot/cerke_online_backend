@@ -19,7 +19,7 @@ import {
   SrcDst,
   SrcStepDstFinite,
   MoveToBePolled,
-  Color, Profession,
+  Color, Profession, RetTyMok, RetTaXot, WhoGoesFirst
 } from "cerke_online_api";
 type Ret_VsCpuEntry = {
   "state": "let_the_game_begin";
@@ -64,11 +64,6 @@ const publicly_announce_matching = (msg: string, is_staging: boolean) => {
 type RoomId = string & { __RoomIdBrand: never };
 type AccessToken = string & { __AccessTokenBrand: never };
 type BotToken = string & { __BotTokenBrand: never };
-
-type WhoGoesFirst = {
-  process: [Ciurl, Ciurl][]
-  result: boolean,
-}
 
 type RoomInfoWithPerspective = {
   room_id: RoomId;
@@ -1493,7 +1488,7 @@ function somepoll<T>(
   };
 }
 
-function receiveTyMokAndUpdate(room_info: RoomInfoWithPerspective): { type: "Err" } | { type: "Ok" } {
+function receiveTyMokAndUpdate(room_info: RoomInfoWithPerspective): RetTyMok {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   const final_obj = getLastMove(game_state);
 
@@ -1523,7 +1518,7 @@ function receiveTyMokAndUpdate(room_info: RoomInfoWithPerspective): { type: "Err
 }
 
 
-function receiveTaXotAndUpdate(room_info: RoomInfoWithPerspective): { type: "Err" } | { type: "Ok", is_first_move_my_move: WhoGoesFirst | null } {
+function receiveTaXotAndUpdate(room_info: RoomInfoWithPerspective): RetTaXot {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   const final_obj = getLastMove(game_state);
 
