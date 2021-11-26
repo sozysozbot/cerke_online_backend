@@ -9,17 +9,17 @@ import {
   InfAfterStep,
   AfterHalfAcceptance,
   Ciurl,
-  Ret_InfAfterStep,
-  Ret_NormalMove,
-  Ret_AfterHalfAcceptance,
+  RetInfAfterStep,
+  RetNormalMove,
+  RetAfterHalfAcceptance,
   Ret_RandomEntry,
-  Ret_RandomPoll,
-  Ret_RandomCancel,
-  Ret_MainPoll,
+  RetRandomPoll,
+  RetRandomCancel,
+  RetMainPoll,
   SrcDst,
   SrcStepDstFinite,
   MoveToBePolled,
-  Color, Profession, RetTyMok, RetTaXot, WhoGoesFirst
+  Color, Profession, RetTyMok, RetTaXot, WhoGoesFirst, RetWhetherTyMokPoll, RetInfPoll
 } from "cerke_online_api";
 type Ret_VsCpuEntry = {
   "state": "let_the_game_begin";
@@ -440,18 +440,18 @@ function ifStepTamEditScore(
 function analyzeAfterHalfAcceptanceAndUpdate(
   msg: AfterHalfAcceptance,
   room_info: RoomInfoWithPerspective,
-): Ret_AfterHalfAcceptance {
+): RetAfterHalfAcceptance {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   const { src, step } = game_state.waiting_for_after_half_acceptance!;
   if (msg.dest == null) {
     // The player intends to pass, possibly because of dissatisfaction against the stepping_ciurl
     const obj = getLastMove(game_state);
     if (typeof obj === "undefined") {
-      return { legal: false, whyIllegal: "there was no last move" };
+      return { type: "Err", why_illegal: "there was no last move" };
     }
 
     if (!isInfAfterStep(obj)) {
-      return { legal: false, whyIllegal: "the last move was not InfAfterStep" };
+      return { type: "Err", why_illegal: "the last move was not InfAfterStep" };
     }
 
     obj.move.finalResult = {
@@ -461,12 +461,7 @@ function analyzeAfterHalfAcceptanceAndUpdate(
 
     ifStepTamEditScore(game_state, step, room_info);
     // hasn't actually moved, so the water entry cannot fail
-    return {
-      legal: true,
-      dat: {
-        waterEntryHappened: false,
-      },
-    };
+    return { type: "WithoutWaterEntry" };
   }
 
   const piece = getPiece(game_state, src);
@@ -488,7 +483,7 @@ function analyzeAfterHalfAcceptanceAndUpdate(
     );
     const final_obj = getLastMove(game_state);
     if (typeof final_obj === "undefined" || !isInfAfterStep(final_obj)) {
-      return { legal: false, whyIllegal: "the last move was not InfAfterStep" };
+      return { type: "Err", why_illegal: "the last move was not InfAfterStep" };
     }
 
     final_obj.move.finalResult = {
@@ -498,11 +493,8 @@ function analyzeAfterHalfAcceptanceAndUpdate(
 
     final_obj.status = hand_is_made ? "not yet" : null;
 
-    const ans: Ret_AfterHalfAcceptance = {
-      legal: true,
-      dat: {
-        waterEntryHappened: false,
-      },
+    const ans: RetAfterHalfAcceptance = {
+      type: "WithoutWaterEntry",
     };
 
     ifStepTamEditScore(game_state, step, room_info);
@@ -520,7 +512,7 @@ function analyzeAfterHalfAcceptanceAndUpdate(
 
     const obj = getLastMove(game_state);
     if (typeof obj === "undefined" || !isInfAfterStep(obj)) {
-      return { legal: false, whyIllegal: "the last move was not InfAfterStep" };
+      return { type: "Err", why_illegal: "the last move was not InfAfterStep" };
     }
 
     if (water_entry_ciurl.filter(a => a).length >= 3) {
@@ -549,12 +541,9 @@ function analyzeAfterHalfAcceptanceAndUpdate(
       obj.status = null;
     }
 
-    const ans: Ret_AfterHalfAcceptance = {
-      legal: true,
-      dat: {
-        waterEntryHappened: true,
-        ciurl: water_entry_ciurl,
-      },
+    const ans: RetAfterHalfAcceptance = {
+      type: "WithWaterEntry",
+      ciurl: water_entry_ciurl,
     };
 
     ifStepTamEditScore(game_state, step, room_info);
@@ -571,7 +560,7 @@ function analyzeAfterHalfAcceptanceAndUpdate(
 
     const obj = getLastMove(game_state);
     if (typeof obj === "undefined" || !isInfAfterStep(obj)) {
-      return { legal: false, whyIllegal: "the last move was not InfAfterStep" };
+      return { type: "Err", why_illegal: "the last move was not InfAfterStep" };
     }
 
     obj.move.finalResult = {
@@ -583,11 +572,8 @@ function analyzeAfterHalfAcceptanceAndUpdate(
       obj.status = "not yet";
     }
 
-    const ans: Ret_AfterHalfAcceptance = {
-      legal: true,
-      dat: {
-        waterEntryHappened: false,
-      },
+    const ans: RetAfterHalfAcceptance = {
+      type: "WithoutWaterEntry"
     };
 
     ifStepTamEditScore(game_state, step, room_info);
@@ -598,7 +584,7 @@ function analyzeAfterHalfAcceptanceAndUpdate(
 function analyzeInfAfterStepAndUpdate(
   msg: InfAfterStep,
   room_info: RoomInfoWithPerspective,
-): Ret_InfAfterStep {
+): RetInfAfterStep {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   game_state.waiting_for_after_half_acceptance = {
     src: msg.src,
@@ -624,8 +610,8 @@ function analyzeInfAfterStepAndUpdate(
     },
     status: null /* no piece has been taken yet */,
   });
-  const ans: Ret_InfAfterStep = {
-    legal: true,
+  const ans: RetInfAfterStep = {
+    type: "Ok",
     ciurl: stepping_ciurl,
   };
   return ans;
@@ -712,19 +698,9 @@ function movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
   return { hand_is_made: false };
 }
 
-type Ret_WhetherTyMokPoll =
-  | {
-    legal: true;
-    content:
-    | "ty mok1"
-    | { is_first_move_my_move: boolean | null }
-    | "not yet";
-  }
-  | { legal: false; whyIllegal: string };
-
 function replyToWhetherTyMokPoll(
   room_info: RoomInfoWithPerspective,
-): Ret_WhetherTyMokPoll {
+): RetWhetherTyMokPoll {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
 
   /* needs to access the current or previous season */
@@ -742,70 +718,60 @@ function replyToWhetherTyMokPoll(
   })();
 
   if (arr.length === 0) {
-    return { legal: false, whyIllegal: "no last move" };
+    return { type: "Err", why_illegal: "no last move" };
   }
 
   const dat = arr[arr.length - 1];
 
   if (dat.status == null) {
-    return { legal: false, whyIllegal: "apparently, no hand was made" };
+    return { type: "Err", why_illegal: "apparently, no hand was made" };
   } else if (dat.status === "ty mok1") {
-    return { legal: true, content: "ty mok1" };
+    return { type: "TyMok" };
   } else if (dat.status === "not yet") {
-    return { legal: true, content: "not yet" };
+    return { type: "NotYetDetermined" };
   } else if (dat.status === "ta xot1") {
-    return {
-      legal: true,
-      content: {
-        is_first_move_my_move:
-          room_info.is_first_move_my_move[game_state.season].result, // FIXME: also notify .process
-      },
-    };
+    return { type: "TaXot", is_first_move_my_move: room_info.is_first_move_my_move[game_state.season] };
   } else {
     const _should_not_reach_here: never = dat.status;
     throw new Error("should not happen");
   }
 }
 
-type Ret_InfPoll =
-  | { legal: true; content: MoveToBePolled | "not yet" }
-  | { legal: false; whyIllegal: string };
-
-function replyToInfPoll(room_info: RoomInfoWithPerspective): Ret_InfPoll {
+function replyToInfPoll(room_info: RoomInfoWithPerspective): RetInfPoll {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
 
   const dat = getLastMove(game_state);
   if (typeof dat === "undefined") {
-    return { legal: false, whyIllegal: "there is no last move" };
+    return { type: "Err", why_illegal: "there is no last move" };
   }
 
   if (room_info.is_IA_down_for_me === dat.byIAOwner) {
-    return { legal: false, whyIllegal: "it's not your turn" };
+    return { type: "Err", why_illegal: "it's not your turn" };
   }
 
   if (dat.move.type !== "InfAfterStep") {
-    return { legal: false, whyIllegal: "InfAfterStep is not happening" };
+    return { type: "Err", why_illegal: "InfAfterStep is not happening" };
   }
 
   if (dat.move.finalResult == null) {
-    return { legal: true, content: "not yet" };
+    return { type: "NotYetDetermined" };
   }
 
-  return { legal: true, content: dat.move };
+  return { type: "MoveMade", content: dat.move };
 }
 
-function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
+function replyToMainPoll(room_info: RoomInfoWithPerspective): RetMainPoll {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   const mov = getLastMove(game_state);
 
   // If the last move is not played by the player, just return what we have.
   if (typeof mov !== "undefined" && room_info.is_IA_down_for_me !== mov.byIAOwner) {
-    return { legal: true, content: mov.move };
+    return { type: "MoveMade", content: mov.move };
   }
 
   // If the player is not playing against a bot, then I simply say "not yet".
   if (!room_to_bot.get(room_info.room_id)) {
-    return { legal: true, content: "not yet" };
+    return { type: "NotYetDetermined" };
   }
 
   // If the player *is* playing against a bot,
@@ -837,8 +803,8 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
   const ret = analyzeValidMessageAndUpdate(bot_move.dat, bot_perspective);
 
   if (bot_move.t === "inf") {
-    const ret2 = ret as Ret_InfAfterStep;
-    if (!ret2.legal) { throw new Error("bot died while handling InfAfterStep!") }
+    const ret2 = ret as RetInfAfterStep;
+    if (ret2.type === "Err") { throw new Error("bot died while handling InfAfterStep!") }
     const next_move = bot_move.after[ret2.ciurl.filter(a => a).length];
     analyzeMessageAndUpdate(next_move, bot_perspective);
   }
@@ -852,13 +818,13 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
     receiveTaXotAndUpdate(bot_perspective)
   }
 
-  return { legal: true, message: tactics, content: mov2.move };
+  return { type: "MoveMade", message: tactics, content: mov2.move };
 }
 
 function analyzeValidMessageAndUpdate(
   msg: InfAfterStep | AfterHalfAcceptance | NormalMove,
   room_info: RoomInfoWithPerspective,
-): Ret_InfAfterStep | Ret_AfterHalfAcceptance | Ret_NormalMove {
+): RetInfAfterStep | RetAfterHalfAcceptance | RetNormalMove {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   if (msg.type === "InfAfterStep") {
     /* InfAfterStep */
@@ -904,10 +870,7 @@ function analyzeValidMessageAndUpdate(
 
       // never fails
       return {
-        legal: true,
-        dat: {
-          waterEntryHappened: false,
-        },
+        type: "WithoutWaterEntry"
       };
     }
 
@@ -935,10 +898,7 @@ function analyzeValidMessageAndUpdate(
       });
       // never fails
       return {
-        legal: true,
-        dat: {
-          waterEntryHappened: false,
-        },
+        type: "WithoutWaterEntry"
       };
     }
 
@@ -997,14 +957,7 @@ function analyzeValidMessageAndUpdate(
           status: null, // never completes a move
         });
       }
-
-      const ans: Ret_NormalMove = {
-        legal: true,
-        dat: {
-          waterEntryHappened: true,
-          ciurl,
-        },
-      };
+      const ans: RetNormalMove = { type: "WithWaterEntry", ciurl };
       return ans;
     } else {
       const {
@@ -1025,11 +978,8 @@ function analyzeValidMessageAndUpdate(
         status: hand_is_made ? "not yet" : null,
       });
 
-      const ans: Ret_NormalMove = {
-        legal: true,
-        dat: {
-          waterEntryHappened: false,
-        },
+      const ans: RetNormalMove = {
+        type: "WithoutWaterEntry"
       };
       return ans;
     }
@@ -1045,11 +995,8 @@ function analyzeValidMessageAndUpdate(
     });
 
     // Tam2 never fails water entry
-    const ans: Ret_NormalMove = {
-      legal: true,
-      dat: {
-        waterEntryHappened: false,
-      },
+    const ans: RetNormalMove = {
+      type: "WithoutWaterEntry"
     };
     return ans;
   } else {
@@ -1061,12 +1008,12 @@ function analyzeValidMessageAndUpdate(
 function analyzeMessageAndUpdate(
   message: object,
   room_info: RoomInfoWithPerspective,
-): Ret_InfAfterStep | Ret_AfterHalfAcceptance | Ret_NormalMove {
+): RetInfAfterStep | RetAfterHalfAcceptance | RetNormalMove {
   const onLeft = (
     errors: t.Errors,
-  ): Ret_InfAfterStep | Ret_AfterHalfAcceptance | Ret_NormalMove => ({
-    legal: false,
-    whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
+  ): RetInfAfterStep | RetAfterHalfAcceptance | RetNormalMove => ({
+    type: "Err",
+    why_illegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
   });
 
   return pipe(
@@ -1200,22 +1147,22 @@ const random_entrance = (() => {
   });
   function random_entrance_poll(o: { is_staging: boolean }) {
     return (req: Request, res: Response) => {
-      const onLeft = (errors: t.Errors): Ret_RandomPoll => ({
-        legal: false,
-        whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
+      const onLeft = (errors: t.Errors): RetRandomPoll => ({
+        type: "Err",
+        why_illegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
       });
 
       return res.json(
         pipe(
           RandomEntrancePollVerifier.decode(req.body),
-          fold(onLeft, function (msg: { access_token: string }): Ret_RandomPoll {
+          fold(onLeft, function (msg: { access_token: string }): RetRandomPoll {
             const access_token = msg.access_token as AccessToken;
             const maybe_room_id:
               | RoomInfoWithPerspective
               | undefined = person_to_room.get(access_token);
             if (typeof maybe_room_id !== "undefined") {
               return {
-                legal: true,
+                type: "Ok",
                 ret: {
                   state: "let_the_game_begin",
                   access_token: msg.access_token,
@@ -1227,7 +1174,7 @@ const random_entrance = (() => {
             } else if (waiting_list.has(access_token)) {
               // not yet assigned a room, but is in the waiting list
               return {
-                legal: true,
+                type: "Ok",
                 ret: {
                   state: "in_waiting_list",
                   access_token: msg.access_token,
@@ -1236,10 +1183,10 @@ const random_entrance = (() => {
             } else {
               // You sent me a poll, but  I don't know you. Hmm...
               return {
-                legal: false,
-                whyIllegal: `Invalid access token: 
-            I don't know your access token, which is ${access_token}.
-            Please reapply by sending an empty object to random/entry .`,
+                type: "Err",
+                why_illegal: `Invalid access token: 
+I don't know ${access_token}, which is the access token that you sent me.
+Please reapply by sending an empty object to random/entry .`,
               };
 
               // FIXME: in the future, I might let you reapply. This will of course change your UUID.
@@ -1251,15 +1198,15 @@ const random_entrance = (() => {
   }
   function random_entrance_cancel(o: { is_staging: boolean }) {
     return (req: Request, res: Response) => {
-      const onLeft = (errors: t.Errors): Ret_RandomCancel => ({
-        legal: false,
-        whyIllegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
+      const onLeft = (errors: t.Errors): RetRandomCancel => ({
+        type: "Err",
+        why_illegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
       });
 
       return res.json(
         pipe(
           RandomEntranceCancelVerifier.decode(req.body),
-          fold(onLeft, function (msg: { access_token: string }): Ret_RandomCancel {
+          fold(onLeft, function (msg: { access_token: string }): RetRandomCancel {
             const access_token = msg.access_token as AccessToken;
             const maybe_room_id:
               | RoomInfoWithPerspective
@@ -1268,7 +1215,7 @@ const random_entrance = (() => {
             // you already have a room. you cannot cancel
             if (typeof maybe_room_id !== "undefined") {
               return {
-                legal: true,
+                type: "Ok",
                 cancellable: false,
               };
             } else if (waiting_list.has(access_token)) {
@@ -1278,14 +1225,14 @@ const random_entrance = (() => {
               publicly_announce_matching(`Canceled ${sha256_first7(access_token)}. 
             The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`, o.is_staging);
               return {
-                legal: true,
+                type: "Ok",
                 cancellable: true,
               };
             } else {
               // You told me to cancel, but I don't know you. Hmm...
               // well, at least you can cancel
               return {
-                legal: true,
+                type: "Ok",
                 cancellable: true,
               };
             }
@@ -1479,7 +1426,7 @@ function somepoll<T>(
     const token_ = authorization.slice(7);
     const maybe_room_info = person_to_room.get(token_ as AccessToken);
     if (typeof maybe_room_info === "undefined") {
-      res.json({ legal: false, whyIllegal: "unrecognized user" });
+      res.json({ type: "Err", why_illegal: "unrecognized user" });
       return;
     }
 
