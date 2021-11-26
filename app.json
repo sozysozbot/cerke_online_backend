@@ -1,8 +1,7 @@
 {
-  "name": "Start on Heroku: Node.js",
-  "description": "A barebones Node.js app using Express 4",
-  "repository": "https://github.com/heroku/node-js-getting-started",
-  "logo": "https://cdn.rawgit.com/heroku/node-js-getting-started/master/public/node.svg",
-  "keywords": ["node", "express", "heroku"],
-  "image": "heroku/nodejs"
+  "name": "Cerke Online Backend",
+  "description": "See https://sites.google.com/view/cet2kaik/the-standardized-rule-in-english for details",
+  "repository": "https://github.com/sozysozbot/cerke_online_backend",
+  "logo": "https://raw.githubusercontent.com/jurliyuuri/cerke_online_alpha/master/public/entrance_image/ja/cerke_online_logo.png",
+  "keywords": ["cetkaik", "cerke", "heroku"]
 }
