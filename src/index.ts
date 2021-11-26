@@ -64,9 +64,14 @@ type RoomId = string & { __RoomIdBrand: never };
 type AccessToken = string & { __AccessTokenBrand: never };
 type BotToken = string & { __BotTokenBrand: never };
 
+type WhoGoesFirst = {
+  process: [Ciurl, Ciurl][]
+  result: boolean,
+}
+
 type RoomInfoWithPerspective = {
   room_id: RoomId;
-  is_first_move_my_move: Tuple4<boolean>;
+  is_first_move_my_move: Tuple4<WhoGoesFirst>;
   is_IA_down_for_me: boolean;
 };
 
@@ -757,7 +762,7 @@ function replyToWhetherTyMokPoll(
       legal: true,
       content: {
         is_first_move_my_move:
-          room_info.is_first_move_my_move[game_state.season],
+          room_info.is_first_move_my_move[game_state.season].result, // FIXME: also notify .process
       },
     };
   } else {
@@ -823,11 +828,14 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
 
   // 2. Update the `game_state` depending on the move I just generated.
   // To do this without duplicating the code, I just have to play one move in the bot's perspective.
-  const bot_perspective = {
+  const bot_perspective: RoomInfoWithPerspective = {
     room_id: room_info.room_id,
-    is_first_move_my_move: room_info.is_first_move_my_move.map(
-      a => !a,
-    ) as Tuple4<boolean>,
+    is_first_move_my_move: [
+      swap_who_goes_first(room_info.is_first_move_my_move[0]),
+      swap_who_goes_first(room_info.is_first_move_my_move[1]),
+      swap_who_goes_first(room_info.is_first_move_my_move[2]),
+      swap_who_goes_first(room_info.is_first_move_my_move[3]),
+    ],
     is_IA_down_for_me: !room_info.is_IA_down_for_me,
   };
   const ret = analyzeValidMessageAndUpdate(bot_move.dat, bot_perspective);
@@ -1072,6 +1080,23 @@ function analyzeMessageAndUpdate(
   );
 }
 
+
+function decide_who_goes_first(): WhoGoesFirst {
+  const process: [Ciurl, Ciurl][] = [];
+  while (true) {
+    const ciurl1: Ciurl = [Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5];
+    const ciurl2: Ciurl = [Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5];
+    process.push([ciurl1, ciurl2]);
+    if (ciurl1.filter(a => a).length > ciurl2.filter(a => a).length) { return { process, result: true } }
+    if (ciurl1.filter(a => a).length < ciurl2.filter(a => a).length) { return { process, result: false } }
+  }
+}
+
+function swap_who_goes_first(a: WhoGoesFirst): WhoGoesFirst {
+  return { result: !a.result, process: a.process.map(([c1, c2]) => [c2, c1]) }
+}
+
+
 const vs_cpu_entrance = (() => {
   function vs_cpu_entrance_entrance(o: { is_staging: boolean }) {
     return (_req: Request, res: Response) => {
@@ -1085,11 +1110,11 @@ const vs_cpu_entrance = (() => {
 
     const room_id = open_a_room_against_bot(bot_token, newToken, is_staging);
 
-    const is_first_turn_newToken_turn: Tuple4<boolean> = [
-      Math.random() < 0.5,
-      Math.random() < 0.5,
-      Math.random() < 0.5,
-      Math.random() < 0.5,
+    const is_first_turn_newToken_turn: Tuple4<WhoGoesFirst> = [
+      decide_who_goes_first(),
+      decide_who_goes_first(),
+      decide_who_goes_first(),
+      decide_who_goes_first(),
     ];
 
     const is_IA_down_for_newToken = Math.random() < 0.5;
@@ -1101,9 +1126,12 @@ const vs_cpu_entrance = (() => {
     });
     bot_to_room.set(bot_token, {
       room_id,
-      is_first_move_my_move: is_first_turn_newToken_turn.map(
-        a => !a,
-      ) as Tuple4<boolean>,
+      is_first_move_my_move: [
+        swap_who_goes_first(is_first_turn_newToken_turn[0]),
+        swap_who_goes_first(is_first_turn_newToken_turn[1]),
+        swap_who_goes_first(is_first_turn_newToken_turn[2]),
+        swap_who_goes_first(is_first_turn_newToken_turn[3]),
+      ],
       is_IA_down_for_me: !is_IA_down_for_newToken,
     });
     room_to_bot.set(room_id, bot_token);
@@ -1113,7 +1141,7 @@ const vs_cpu_entrance = (() => {
       log2_rate: 0,
       IA_owner_s_score: 20,
       is_IA_owner_s_turn:
-        is_first_turn_newToken_turn[0 /* spring */] ===
+        is_first_turn_newToken_turn[0 /* spring */].result ===
         is_IA_down_for_newToken,
       f: {
         currentBoard: [
@@ -1345,7 +1373,7 @@ const vs_cpu_entrance = (() => {
     return {
       state: "let_the_game_begin",
       access_token: newToken,
-      is_first_move_my_move: is_first_turn_newToken_turn[0 /* spring */],
+      is_first_move_my_move: is_first_turn_newToken_turn[0 /* spring */].result, // FIXME: also notify .process
       is_IA_down_for_me: is_IA_down_for_newToken,
     };
 
@@ -1386,7 +1414,7 @@ const random_entrance = (() => {
                   state: "let_the_game_begin",
                   access_token: msg.access_token,
                   is_first_move_my_move:
-                    maybe_room_id.is_first_move_my_move[0 /* spring */],
+                    maybe_room_id.is_first_move_my_move[0 /* spring */].result, // FIXME: also notify the process
                   is_IA_down_for_me: maybe_room_id.is_IA_down_for_me,
                 },
               };
@@ -1474,11 +1502,11 @@ const random_entrance = (() => {
       publicly_announce_matching(`The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`, o.is_staging);
       const room_id = open_a_room(token, newToken, o.is_staging);
 
-      const is_first_turn_newToken_turn: Tuple4<boolean> = [
-        Math.random() < 0.5,
-        Math.random() < 0.5,
-        Math.random() < 0.5,
-        Math.random() < 0.5,
+      const is_first_turn_newToken_turn: Tuple4<WhoGoesFirst> = [
+        decide_who_goes_first(),
+        decide_who_goes_first(),
+        decide_who_goes_first(),
+        decide_who_goes_first(),
       ];
 
       const is_IA_down_for_newToken = Math.random() < 0.5;
@@ -1490,9 +1518,12 @@ const random_entrance = (() => {
       });
       person_to_room.set(token, {
         room_id,
-        is_first_move_my_move: is_first_turn_newToken_turn.map(
-          a => !a,
-        ) as Tuple4<boolean>,
+        is_first_move_my_move: [
+          swap_who_goes_first(is_first_turn_newToken_turn[0]),
+          swap_who_goes_first(is_first_turn_newToken_turn[1]),
+          swap_who_goes_first(is_first_turn_newToken_turn[2]),
+          swap_who_goes_first(is_first_turn_newToken_turn[3]),
+        ],
         is_IA_down_for_me: !is_IA_down_for_newToken,
       });
       room_to_gamestate.set(room_id, {
@@ -1501,7 +1532,7 @@ const random_entrance = (() => {
         log2_rate: 0,
         IA_owner_s_score: 20,
         is_IA_owner_s_turn:
-          is_first_turn_newToken_turn[0 /* spring */] ===
+          is_first_turn_newToken_turn[0 /* spring */].result ===
           is_IA_down_for_newToken,
         f: {
           currentBoard: [
@@ -1733,7 +1764,7 @@ const random_entrance = (() => {
       return {
         state: "let_the_game_begin",
         access_token: newToken,
-        is_first_move_my_move: is_first_turn_newToken_turn[0 /* spring */],
+        is_first_move_my_move: is_first_turn_newToken_turn[0 /* spring */].result, // FIXME: also notify the result
         is_IA_down_for_me: is_IA_down_for_newToken,
       };
     }
@@ -1987,7 +2018,7 @@ function receiveWhetherTyMokAndUpdate(message: boolean, room_info: RoomInfoWithP
     return {
       legal: true,
       is_first_move_my_move:
-        room_info.is_first_move_my_move[game_state.season],
+        room_info.is_first_move_my_move[game_state.season].result, // FIXME: also notify the result
     };
   }
 }
