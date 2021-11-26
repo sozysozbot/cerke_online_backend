@@ -1493,19 +1493,18 @@ function somepoll<T>(
   };
 }
 
-function receiveTyMokAndUpdate(room_info: RoomInfoWithPerspective):
-  null | { legal: true } {
+function receiveTyMokAndUpdate(room_info: RoomInfoWithPerspective): { type: "Err" } | { type: "Ok" } {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   const final_obj = getLastMove(game_state);
 
   if (typeof final_obj === "undefined") {
     console.log("no last move");
-    return null;
+    return { type: "Err" };
   }
 
   if (final_obj.status == null) {
     console.log("no hand");
-    return null;
+    return { type: "Err" };
   }
 
   final_obj.status = "ty mok1";
@@ -1520,7 +1519,7 @@ function receiveTyMokAndUpdate(room_info: RoomInfoWithPerspective):
   };
   game_state.log2_rate = log2RateProgressMap[game_state.log2_rate];
 
-  return { legal: true };
+  return { type: "Ok" };
 }
 
 
@@ -1592,29 +1591,23 @@ function whethertymok_tymok(req: Request, res: Response) {
 
   const authorization = req.headers.authorization;
   if (authorization == null) {
-    res.send("null"); // FIXME: does not conform to RFC 6750
+    res.json({ type: "Err" });
     return;
   } else if (authorization.slice(0, 7) !== "Bearer ") {
-    res.send("null"); // FIXME: does not conform to RFC 6750
+    res.json({ type: "Err" });
     return;
   }
 
   const token_ = authorization.slice(7);
   const maybe_room_info = person_to_room.get(token_ as AccessToken);
   if (typeof maybe_room_info === "undefined") {
-    res.send("null");
+    res.json({ type: "Err" });
     return;
   }
 
   console.log("from", req.headers.authorization);
-  const ret = receiveTyMokAndUpdate(maybe_room_info);
-  if (!ret) {
-    res.send("null");
-    return;
-  } else {
-    res.json(ret);
-    return;
-  }
+  res.json(receiveTyMokAndUpdate(maybe_room_info));
+  return;
 }
 
 function whethertymok_taxot(req: Request, res: Response) {
