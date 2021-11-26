@@ -1523,25 +1523,24 @@ function receiveTyMokAndUpdate(room_info: RoomInfoWithPerspective): { type: "Err
 }
 
 
-function receiveTaXotAndUpdate(room_info: RoomInfoWithPerspective):
-  null | { legal: true, is_first_move_my_move?: boolean | null } {
+function receiveTaXotAndUpdate(room_info: RoomInfoWithPerspective): { type: "Err" } | { type: "Ok", is_first_move_my_move: WhoGoesFirst | null } {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   const final_obj = getLastMove(game_state);
 
   if (typeof final_obj === "undefined") {
     console.log("no last move");
-    return null;
+    return { type: "Err" };
   }
 
   if (final_obj.status == null) {
     console.log("no hand");
-    return null;
+    return { type: "Err" };
   }
 
   final_obj.status = "ta xot1";
   if (game_state.season === 3) {
     console.log("the game has ended!");
-    return { legal: true, is_first_move_my_move: null };
+    return { type: "Ok", is_first_move_my_move: null };
   } else if (game_state.season === 0) {
     game_state.season = 1;
   } else if (game_state.season === 1) {
@@ -1559,7 +1558,7 @@ function receiveTaXotAndUpdate(room_info: RoomInfoWithPerspective):
       Math.pow(2, game_state.log2_rate);
     if (game_state.IA_owner_s_score >= 40) {
       console.log("the game has ended!");
-      return { legal: true, is_first_move_my_move: null }
+      return { type: "Ok", is_first_move_my_move: null }
     }
   } else {
     game_state.IA_owner_s_score -=
@@ -1567,7 +1566,7 @@ function receiveTaXotAndUpdate(room_info: RoomInfoWithPerspective):
       Math.pow(2, game_state.log2_rate);
     if (game_state.IA_owner_s_score < 0) {
       console.log("the game has ended!");
-      return { legal: true, is_first_move_my_move: null }
+      return { type: "Ok", is_first_move_my_move: null }
     }
   }
 
@@ -1579,9 +1578,9 @@ function receiveTaXotAndUpdate(room_info: RoomInfoWithPerspective):
   };
 
   return {
-    legal: true,
+    type: "Ok",
     is_first_move_my_move:
-      room_info.is_first_move_my_move[game_state.season].result, // FIXME: also notify the result
+      room_info.is_first_move_my_move[game_state.season],
   };
 }
 
@@ -1616,29 +1615,24 @@ function whethertymok_taxot(req: Request, res: Response) {
 
   const authorization = req.headers.authorization;
   if (authorization == null) {
-    res.send("null"); // FIXME: does not conform to RFC 6750
+    res.json({ type: "Err" });
     return;
   } else if (authorization.slice(0, 7) !== "Bearer ") {
-    res.send("null"); // FIXME: does not conform to RFC 6750
+    res.json({ type: "Err" });
     return;
   }
 
   const token_ = authorization.slice(7);
   const maybe_room_info = person_to_room.get(token_ as AccessToken);
   if (typeof maybe_room_info === "undefined") {
-    res.send("null");
+    res.json({ type: "Err" });
     return;
   }
 
   console.log("from", req.headers.authorization);
   const ret = receiveTaXotAndUpdate(maybe_room_info);
-  if (!ret) {
-    res.send("null");
-    return;
-  } else {
-    res.json(ret);
-    return;
-  }
+  res.json(ret);
+  return;
 }
 
 function main(req: Request, res: Response) {
