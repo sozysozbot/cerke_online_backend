@@ -854,7 +854,7 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
 
   if (mov2.status === "not yet") {
     // The bot is not yet smart enough to give ty mok1
-    receiveTaXotAndUpdate(false, bot_perspective)
+    receiveTaXotAndUpdate(bot_perspective)
   }
 
   return { legal: true, message: tactics, content: mov2.move };
@@ -1430,7 +1430,6 @@ app.use(function (req, res, next) {
 app
   .use(express.static(path.join(__dirname, "public")))
   .get("/", (req: Request, res: Response) => res.redirect('https://github.com/sozysozbot/cerke_online_backend'))
-  .post("/", main)
   .post("/mainpoll", somepoll("/mainpoll", replyToMainPoll))
   .post("/infpoll", somepoll("/infpoll", replyToInfPoll))
   .post("/whethertymok/tymok", whethertymok_tymok)
@@ -1494,8 +1493,8 @@ function somepoll<T>(
   };
 }
 
-function receiveTyMokAndUpdate(message: true, room_info: RoomInfoWithPerspective):
-  null | { legal: true, is_first_move_my_move?: boolean | null } {
+function receiveTyMokAndUpdate(room_info: RoomInfoWithPerspective):
+  null | { legal: true } {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   const final_obj = getLastMove(game_state);
 
@@ -1525,7 +1524,7 @@ function receiveTyMokAndUpdate(message: true, room_info: RoomInfoWithPerspective
 }
 
 
-function receiveTaXotAndUpdate(message: false, room_info: RoomInfoWithPerspective):
+function receiveTaXotAndUpdate(room_info: RoomInfoWithPerspective):
   null | { legal: true, is_first_move_my_move?: boolean | null } {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   const final_obj = getLastMove(game_state);
@@ -1608,7 +1607,7 @@ function whethertymok_tymok(req: Request, res: Response) {
   }
 
   console.log("from", req.headers.authorization);
-  const ret = receiveTyMokAndUpdate(true, maybe_room_info);
+  const ret = receiveTyMokAndUpdate(maybe_room_info);
   if (!ret) {
     res.send("null");
     return;
@@ -1639,9 +1638,7 @@ function whethertymok_taxot(req: Request, res: Response) {
   }
 
   console.log("from", req.headers.authorization);
-  const message = false;
-
-  const ret = receiveTaXotAndUpdate(message, maybe_room_info);
+  const ret = receiveTaXotAndUpdate(maybe_room_info);
   if (!ret) {
     res.send("null");
     return;
