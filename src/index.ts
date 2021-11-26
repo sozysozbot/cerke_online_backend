@@ -854,7 +854,7 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): Ret_MainPoll {
 
   if (mov2.status === "not yet") {
     // The bot is not yet smart enough to give ty mok1
-    receiveWhetherTyMokAndUpdate(false, bot_perspective)
+    receiveTaXotAndUpdate(false, bot_perspective)
   }
 
   return { legal: true, message: tactics, content: mov2.move };
@@ -1433,9 +1433,8 @@ app
   .post("/", main)
   .post("/mainpoll", somepoll("/mainpoll", replyToMainPoll))
   .post("/infpoll", somepoll("/infpoll", replyToInfPoll))
-  .post("/whethertymok", whethertymok) // FIXME: will soon be removed
-  .post("/whethertymok/tymok", whethertymok)
-  .post("/whethertymok/taxot", whethertymok)
+  .post("/whethertymok/tymok", whethertymok_tymok)
+  .post("/whethertymok/taxot", whethertymok_taxot)
   .post(
     "/whethertymokpoll",
     somepoll("/whethertymokpoll", replyToWhetherTyMokPoll),
@@ -1495,7 +1494,7 @@ function somepoll<T>(
   };
 }
 
-function receiveWhetherTyMokAndUpdate(message: boolean, room_info: RoomInfoWithPerspective):
+function receiveTyMokAndUpdate(message: true, room_info: RoomInfoWithPerspective):
   null | { legal: true, is_first_move_my_move?: boolean | null } {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   const final_obj = getLastMove(game_state);
@@ -1510,72 +1509,86 @@ function receiveWhetherTyMokAndUpdate(message: boolean, room_info: RoomInfoWithP
     return null;
   }
 
-  if (message === true) {
-    // ty mok1
-    final_obj.status = "ty mok1";
-    const log2RateProgressMap: { [P in Log2_Rate]: Log2_Rate } = {
-      0: 1,
-      1: 2,
-      2: 3,
-      3: 4,
-      4: 5,
-      5: 6,
-      6: 6, // does not go beyond x64, because the total score is 40
-    };
-    game_state.log2_rate = log2RateProgressMap[game_state.log2_rate];
+  final_obj.status = "ty mok1";
+  const log2RateProgressMap: { [P in Log2_Rate]: Log2_Rate } = {
+    0: 1,
+    1: 2,
+    2: 3,
+    3: 4,
+    4: 5,
+    5: 6,
+    6: 6, // does not go beyond x64, because the total score is 40
+  };
+  game_state.log2_rate = log2RateProgressMap[game_state.log2_rate];
 
-    return { legal: true };
-  } else {
-    final_obj.status = "ta xot1";
-    if (game_state.season === 3) {
-      console.log("the game has ended!");
-      return { legal: true, is_first_move_my_move: null };
-    } else if (game_state.season === 0) {
-      game_state.season = 1;
-    } else if (game_state.season === 1) {
-      game_state.season = 2;
-    } else if (game_state.season === 2) {
-      game_state.season = 3;
-    } else {
-      const _should_not_reach_here: never = game_state.season;
-      throw new Error("should not happen");
-    }
-
-    if (room_info.is_IA_down_for_me) {
-      game_state.IA_owner_s_score +=
-        calculateHandsAndScore(game_state.f.hop1zuo1OfIAOwner).score *
-        Math.pow(2, game_state.log2_rate);
-      if (game_state.IA_owner_s_score >= 40) {
-        console.log("the game has ended!");
-        return { legal: true, is_first_move_my_move: null }
-      }
-    } else {
-      game_state.IA_owner_s_score -=
-        calculateHandsAndScore(game_state.f.hop1zuo1OfNonIAOwner).score *
-        Math.pow(2, game_state.log2_rate);
-      if (game_state.IA_owner_s_score < 0) {
-        console.log("the game has ended!");
-        return { legal: true, is_first_move_my_move: null }
-      }
-    }
-
-    // reset the board
-    game_state.f = {
-      currentBoard: create_initialized_board(),
-      hop1zuo1OfIAOwner: [],
-      hop1zuo1OfNonIAOwner: [],
-    };
-
-    return {
-      legal: true,
-      is_first_move_my_move:
-        room_info.is_first_move_my_move[game_state.season].result, // FIXME: also notify the result
-    };
-  }
+  return { legal: true };
 }
 
-function whethertymok(req: Request, res: Response) {
-  console.log("\n sent to '/whethertymok'");
+
+function receiveTaXotAndUpdate(message: false, room_info: RoomInfoWithPerspective):
+  null | { legal: true, is_first_move_my_move?: boolean | null } {
+  const game_state = room_to_gamestate.get(room_info.room_id)!;
+  const final_obj = getLastMove(game_state);
+
+  if (typeof final_obj === "undefined") {
+    console.log("no last move");
+    return null;
+  }
+
+  if (final_obj.status == null) {
+    console.log("no hand");
+    return null;
+  }
+
+  final_obj.status = "ta xot1";
+  if (game_state.season === 3) {
+    console.log("the game has ended!");
+    return { legal: true, is_first_move_my_move: null };
+  } else if (game_state.season === 0) {
+    game_state.season = 1;
+  } else if (game_state.season === 1) {
+    game_state.season = 2;
+  } else if (game_state.season === 2) {
+    game_state.season = 3;
+  } else {
+    const _should_not_reach_here: never = game_state.season;
+    throw new Error("should not happen");
+  }
+
+  if (room_info.is_IA_down_for_me) {
+    game_state.IA_owner_s_score +=
+      calculateHandsAndScore(game_state.f.hop1zuo1OfIAOwner).score *
+      Math.pow(2, game_state.log2_rate);
+    if (game_state.IA_owner_s_score >= 40) {
+      console.log("the game has ended!");
+      return { legal: true, is_first_move_my_move: null }
+    }
+  } else {
+    game_state.IA_owner_s_score -=
+      calculateHandsAndScore(game_state.f.hop1zuo1OfNonIAOwner).score *
+      Math.pow(2, game_state.log2_rate);
+    if (game_state.IA_owner_s_score < 0) {
+      console.log("the game has ended!");
+      return { legal: true, is_first_move_my_move: null }
+    }
+  }
+
+  // reset the board
+  game_state.f = {
+    currentBoard: create_initialized_board(),
+    hop1zuo1OfIAOwner: [],
+    hop1zuo1OfNonIAOwner: [],
+  };
+
+  return {
+    legal: true,
+    is_first_move_my_move:
+      room_info.is_first_move_my_move[game_state.season].result, // FIXME: also notify the result
+  };
+}
+
+function whethertymok_tymok(req: Request, res: Response) {
+  console.log("\n sent to '/whethertymok/tymok'");
   console.log(JSON.stringify(req.body, null, "\t"));
 
   const authorization = req.headers.authorization;
@@ -1595,21 +1608,40 @@ function whethertymok(req: Request, res: Response) {
   }
 
   console.log("from", req.headers.authorization);
-  let message: unknown = req.body.message;
+  const ret = receiveTyMokAndUpdate(true, maybe_room_info);
+  if (!ret) {
+    res.send("null");
+    return;
+  } else {
+    res.json(ret);
+    return;
+  }
+}
 
-  if (typeof message !== "boolean") {
-    console.log("non-boolean message");
+function whethertymok_taxot(req: Request, res: Response) {
+  console.log("\n sent to '/whethertymok/taxot'");
+  console.log(JSON.stringify(req.body, null, "\t"));
+
+  const authorization = req.headers.authorization;
+  if (authorization == null) {
+    res.send("null"); // FIXME: does not conform to RFC 6750
+    return;
+  } else if (authorization.slice(0, 7) !== "Bearer ") {
+    res.send("null"); // FIXME: does not conform to RFC 6750
+    return;
+  }
+
+  const token_ = authorization.slice(7);
+  const maybe_room_info = person_to_room.get(token_ as AccessToken);
+  if (typeof maybe_room_info === "undefined") {
     res.send("null");
     return;
   }
 
-  if (message == null) {
-    console.log("no message");
-    res.send("null");
-    return;
-  }
+  console.log("from", req.headers.authorization);
+  const message = false;
 
-  const ret = receiveWhetherTyMokAndUpdate(message, maybe_room_info);
+  const ret = receiveTaXotAndUpdate(message, maybe_room_info);
   if (!ret) {
     res.send("null");
     return;
