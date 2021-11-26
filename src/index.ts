@@ -1429,9 +1429,7 @@ app.use(function (req, res, next) {
 
 app
   .use(express.static(path.join(__dirname, "public")))
-  .set("views", path.join(__dirname, "views"))
-  .set("view engine", "ejs")
-  .get("/", (req: Request, res: Response) => res.render("pages/index"))
+  .get("/", (req: Request, res: Response) => res.redirect('https://github.com/sozysozbot/cerke_online_backend'))
   .post("/", main)
   .post("/mainpoll", somepoll("/mainpoll", replyToMainPoll))
   .post("/infpoll", somepoll("/infpoll", replyToInfPoll))
