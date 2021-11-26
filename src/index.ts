@@ -1433,7 +1433,9 @@ app
   .post("/", main)
   .post("/mainpoll", somepoll("/mainpoll", replyToMainPoll))
   .post("/infpoll", somepoll("/infpoll", replyToInfPoll))
-  .post("/whethertymok", whethertymok)
+  .post("/whethertymok", whethertymok) // FIXME: will soon be removed
+  .post("/whethertymok/tymok", whethertymok)
+  .post("/whethertymok/taxot", whethertymok)
   .post(
     "/whethertymokpoll",
     somepoll("/whethertymokpoll", replyToWhetherTyMokPoll),
