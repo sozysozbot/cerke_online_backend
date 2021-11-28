@@ -1117,7 +1117,6 @@ const vs_cpu_entrance = (() => {
       is_staging
     );
 
-    // exit after finding the first person
     return {
       type: "LetTheGameBegin",
       access_token: newToken,
@@ -1408,13 +1407,13 @@ function somepoll<T>(
       res.json({
         legal: false,
         whyIllegal: "send with `Authorization: Bearer [token]`",
-      }); // FIXME: does not conform to RFC 6750
+      });
       return;
     } else if (authorization.slice(0, 7) !== "Bearer ") {
       res.json({
         legal: false,
         whyIllegal: "send with `Authorization: Bearer [token]`",
-      }); // FIXME: does not conform to RFC 6750
+      });
       return;
     }
 
@@ -1578,17 +1577,17 @@ function main(req: Request, res: Response) {
 
   const authorization = req.headers.authorization;
   if (authorization == null) {
-    res.send("null"); // FIXME: does not conform to RFC 6750
+    res.json({ type: "Err", why_illegal: "send with `Authorization: Bearer [token]`" });
     return;
   } else if (authorization.slice(0, 7) !== "Bearer ") {
-    res.send("null"); // FIXME: does not conform to RFC 6750
+    res.json({ type: "Err", why_illegal: "send with `Authorization: Bearer [token]`" });
     return;
   }
 
   const token_ = authorization.slice(7);
   const maybe_room_info = person_to_room.get(token_ as AccessToken);
   if (typeof maybe_room_info === "undefined") {
-    res.send("null");
+    res.json({ type: "Err", why_illegal: "unrecognized user" });
     return;
   }
 
@@ -1596,14 +1595,12 @@ function main(req: Request, res: Response) {
   let message: unknown = req.body.message;
 
   if (typeof message !== "object") {
-    console.log("message is primitive");
-    res.send("null");
+    res.json({ type: "Err", why_illegal: "message is of the primitive type" });
     return;
   }
 
   if (message == null) {
-    console.log("no message");
-    res.send("null");
+    res.json({ type: "Err", why_illegal: "no message" });
     return;
   }
 
