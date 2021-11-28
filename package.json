@@ -15,7 +15,7 @@
     "@types/ws": "^7.4.7",
     "body-parser": "^1.19.0",
     "cerke_hands_and_score": "^1.0.2",
-    "cerke_online_api": "^1.6.3",
+    "cerke_online_api": "^1.7.2",
     "cerke_verifier": "0.0.10",
     "discord.js": "^12.5.3",
     "ejs": "^2.5.6",

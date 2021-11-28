@@ -12,21 +12,16 @@ import {
   RetInfAfterStep,
   RetNormalMove,
   RetAfterHalfAcceptance,
-  Ret_RandomEntry,
+  RetRandomEntry,
   RetRandomPoll,
   RetRandomCancel,
   RetMainPoll,
   SrcDst,
   SrcStepDstFinite,
   MoveToBePolled,
-  Color, Profession, RetTyMok, RetTaXot, WhoGoesFirst, RetWhetherTyMokPoll, RetInfPoll
+  Color, Profession, RetTyMok, RetTaXot, WhoGoesFirst, RetWhetherTyMokPoll, RetInfPoll, RetVsCpuEntry
 } from "cerke_online_api";
-type Ret_VsCpuEntry = {
-  "state": "let_the_game_begin";
-  "access_token": string;
-  "is_first_move_my_move": boolean;
-  "is_IA_down_for_me": boolean;
-}
+
 import { Hand, ObtainablePieces, calculate_hands_and_score_from_pieces } from "cerke_hands_and_score";
 import * as t from "io-ts";
 import { pipe } from "fp-ts/lib/pipeable";
@@ -1047,7 +1042,7 @@ const vs_cpu_entrance = (() => {
     }
   }
 
-  function vsCpuEntry(is_staging: boolean): Ret_VsCpuEntry {
+  function vsCpuEntry(is_staging: boolean): RetVsCpuEntry {
     const newToken: AccessToken = uuidv4() as AccessToken;
     const bot_token: BotToken = uuidv4() as BotToken;
 
@@ -1124,9 +1119,9 @@ const vs_cpu_entrance = (() => {
 
     // exit after finding the first person
     return {
-      state: "let_the_game_begin",
+      type: "LetTheGameBegin",
       access_token: newToken,
-      is_first_move_my_move: is_first_turn_newToken_turn[0 /* spring */].result, // FIXME: also notify .process
+      is_first_move_my_move: is_first_turn_newToken_turn[0 /* spring */],
       is_IA_down_for_me: is_IA_down_for_newToken,
     };
 
@@ -1248,7 +1243,7 @@ Please reapply by sending an empty object to random/entry .`,
     }
   }
 
-  function randomEntry(o: { is_staging: boolean }): Ret_RandomEntry {
+  function randomEntry(o: { is_staging: boolean }): RetRandomEntry {
     const newToken: AccessToken = uuidv4() as AccessToken;
     for (let token of waiting_list) {
       waiting_list.delete(token);
@@ -1325,9 +1320,9 @@ Please reapply by sending an empty object to random/entry .`,
 
       // exit after finding the first person
       return {
-        state: "let_the_game_begin",
+        type: "LetTheGameBegin",
         access_token: newToken,
-        is_first_move_my_move: is_first_turn_newToken_turn[0 /* spring */].result, // FIXME: also notify the result
+        is_first_move_my_move: is_first_turn_newToken_turn[0 /* spring */],
         is_IA_down_for_me: is_IA_down_for_newToken,
       };
     }
@@ -1343,7 +1338,7 @@ Please reapply by sending an empty object to random/entry .`,
       o.is_staging
     );
     return {
-      state: "in_waiting_list",
+      type: "InWaitingList",
       access_token: newToken,
     };
   }
