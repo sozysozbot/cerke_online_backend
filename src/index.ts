@@ -1159,10 +1159,10 @@ const random_entrance = (() => {
               return {
                 type: "Ok",
                 ret: {
-                  state: "let_the_game_begin",
+                  type: "LetTheGameBegin",
                   access_token: msg.access_token,
                   is_first_move_my_move:
-                    maybe_room_id.is_first_move_my_move[0 /* spring */].result, // FIXME: also notify the process
+                    maybe_room_id.is_first_move_my_move[0 /* spring */],
                   is_IA_down_for_me: maybe_room_id.is_IA_down_for_me,
                 },
               };
@@ -1171,7 +1171,7 @@ const random_entrance = (() => {
               return {
                 type: "Ok",
                 ret: {
-                  state: "in_waiting_list",
+                  type: "InWaitingList",
                   access_token: msg.access_token,
                 },
               };
