@@ -1014,7 +1014,7 @@ function analyzeMainMessageAndUpdate(
     errors: t.Errors,
   ): RetInfAfterStep | RetNormalMove => ({
     type: "Err",
-    why_illegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
+    why_illegal: `Invalid message format encountered in analyzeMainMessageAndUpdate(): ${errors.length} error(s) found during parsing ${JSON.stringify(message)}`,
   });
 
   return pipe(
@@ -1032,7 +1032,7 @@ function analyzeAfterHalfAcceptanceMessageAndUpdate(
     errors: t.Errors,
   ): RetAfterHalfAcceptance => ({
     type: "Err",
-    why_illegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
+    why_illegal: `Invalid message format in analyzeAfterHalfAcceptanceMessageAndUpdate(): ${errors.length} error(s) found during parsing ${JSON.stringify(message)}`,
   });
 
   return pipe(
@@ -1168,7 +1168,7 @@ const random_entrance = (() => {
     return (req: Request, res: Response) => {
       const onLeft = (errors: t.Errors): RetRandomPoll => ({
         type: "Err",
-        why_illegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
+        why_illegal: `Invalid message format encountered in random_entrance_poll(): ${errors.length} error(s) found during parsing`,
       });
 
       return res.json(
