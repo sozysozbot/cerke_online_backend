@@ -188,9 +188,8 @@ const TamMoveVerifier = t.union([
   }),
 ]);
 
-const Verifier = t.union([
+const MainVerifier = t.union([
   InfAfterStepVerifier,
-  AfterHalfAcceptanceVerifier,
   NormalNonTamMoveVerifier,
   TamMoveVerifier,
 ]);
@@ -795,13 +794,13 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): RetMainPoll {
     ],
     is_IA_down_for_me: !room_info.is_IA_down_for_me,
   };
-  const ret = analyzeValidMessageAndUpdate(bot_move.dat, bot_perspective);
+  const ret = analyzeValidMainMessageAndUpdate(bot_move.dat, bot_perspective);
 
   if (bot_move.t === "inf") {
     const ret2 = ret as RetInfAfterStep;
     if (ret2.type === "Err") { throw new Error("bot died while handling InfAfterStep!") }
     const next_move = bot_move.after[ret2.ciurl.filter(a => a).length];
-    analyzeMessageAndUpdate(next_move, bot_perspective);
+    analyzeAfterHalfAcceptanceMessageAndUpdate(next_move, bot_perspective);
   }
 
   // 3. Send back the move I just made
@@ -816,16 +815,14 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): RetMainPoll {
   return { type: "MoveMade", message: tactics, content: mov2.move };
 }
 
-function analyzeValidMessageAndUpdate(
-  msg: InfAfterStep | AfterHalfAcceptance | NormalMove,
+function analyzeValidMainMessageAndUpdate(
+  msg: InfAfterStep | NormalMove,
   room_info: RoomInfoWithPerspective,
-): RetInfAfterStep | RetAfterHalfAcceptance | RetNormalMove {
+): RetInfAfterStep | RetNormalMove {
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   if (msg.type === "InfAfterStep") {
     /* InfAfterStep */
     return analyzeInfAfterStepAndUpdate(msg, room_info);
-  } else if (msg.type === "AfterHalfAcceptance") {
-    return analyzeAfterHalfAcceptanceAndUpdate(msg, room_info);
   } else if (msg.type === "NonTamMove") {
     if (msg.data.type === "FromHand") {
       if (room_info.is_IA_down_for_me) {
@@ -1000,23 +997,51 @@ function analyzeValidMessageAndUpdate(
   }
 }
 
-function analyzeMessageAndUpdate(
+function analyzeValidAfterHalfAcceptanceMessageAndUpdate(
+  msg: AfterHalfAcceptance,
+  room_info: RoomInfoWithPerspective,
+): RetAfterHalfAcceptance {
+  return analyzeAfterHalfAcceptanceAndUpdate(msg, room_info);
+
+}
+
+
+function analyzeMainMessageAndUpdate(
   message: object,
   room_info: RoomInfoWithPerspective,
-): RetInfAfterStep | RetAfterHalfAcceptance | RetNormalMove {
+): RetInfAfterStep | RetNormalMove {
   const onLeft = (
     errors: t.Errors,
-  ): RetInfAfterStep | RetAfterHalfAcceptance | RetNormalMove => ({
+  ): RetInfAfterStep | RetNormalMove => ({
     type: "Err",
     why_illegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
   });
 
   return pipe(
-    Verifier.decode(message),
-    fold(onLeft, msg => analyzeValidMessageAndUpdate(msg, room_info)
+    MainVerifier.decode(message),
+    fold(onLeft, msg => analyzeValidMainMessageAndUpdate(msg, room_info)
     ),
   );
 }
+
+function analyzeAfterHalfAcceptanceMessageAndUpdate(
+  message: object,
+  room_info: RoomInfoWithPerspective,
+): RetAfterHalfAcceptance {
+  const onLeft = (
+    errors: t.Errors,
+  ): RetAfterHalfAcceptance => ({
+    type: "Err",
+    why_illegal: `Invalid message format: ${errors.length} error(s) found during parsing`,
+  });
+
+  return pipe(
+    AfterHalfAcceptanceVerifier.decode(message),
+    fold(onLeft, msg => analyzeValidAfterHalfAcceptanceMessageAndUpdate(msg, room_info)
+    ),
+  );
+}
+
 
 
 function decide_who_goes_first(): WhoGoesFirst {
@@ -1366,15 +1391,15 @@ app.use(function (req, res, next) {
 app
   .use(express.static(path.join(__dirname, "public")))
   .get("/", (req: Request, res: Response) => res.redirect('https://github.com/sozysozbot/cerke_online_backend'))
-  .post("/mainpoll", somepoll("/mainpoll", replyToMainPoll))
-  .post("/infpoll", somepoll("/infpoll", replyToInfPoll))
-  .post("/whethertymok/tymok", whethertymok_tymok)
-  .post("/whethertymok/taxot", whethertymok_taxot)
+  .post("/poll/main", somepoll("/poll/main", replyToMainPoll))
+  .post("/poll/inf", somepoll("/poll/inf", replyToInfPoll))
+  .post("/decision/tymok", whethertymok_tymok)
+  .post("/decision/taxot", whethertymok_taxot)
   .post(
-    "/whethertymokpoll",
-    somepoll("/whethertymokpoll", replyToWhetherTyMokPoll),
+    "/poll/whethertymok",
+    somepoll("/poll/whethertymok", replyToWhetherTyMokPoll),
   )
-  .post("/slow", (req, res) => {
+  .post("/decision/afterhalfacceptance", (req, res) => {
     (async () => {
       let time = (Math.random() * 1000) | 0;
       console.log(`start waiting for ${time}ms`);
@@ -1384,14 +1409,24 @@ app
       main(req, res);
     })();
   })
-  .post("/random/entry", random_entrance.entrance({ is_staging: false }))
-  .post("/random/poll", random_entrance.poll({ is_staging: false }))
-  .post("/random/cancel", random_entrance.cancel({ is_staging: false }))
-  .post("/random/entry/staging", random_entrance.entrance({ is_staging: true }))
-  .post("/random/poll/staging", random_entrance.poll({ is_staging: true }))
-  .post("/random/cancel/staging", random_entrance.cancel({ is_staging: true }))
-  .post("/vs_cpu/entry", vs_cpu_entrance.entrance({ is_staging: false }))
-  .post("/vs_cpu/entry/staging", vs_cpu_entrance.entrance({ is_staging: true }))
+  .post("/decision/main", (req, res) => {
+    (async () => {
+      let time = (Math.random() * 1000) | 0;
+      console.log(`start waiting for ${time}ms`);
+      await new Promise(r => setTimeout(r, time));
+
+      console.log("finish waiting");
+      afterhalfacceptance(req, res);
+    })();
+  })
+  .post("/matching/random/entry", random_entrance.entrance({ is_staging: false }))
+  .post("/matching/random/poll", random_entrance.poll({ is_staging: false }))
+  .post("/matching/random/cancel", random_entrance.cancel({ is_staging: false }))
+  .post("/matching/random/entry/staging", random_entrance.entrance({ is_staging: true }))
+  .post("/matching/random/poll/staging", random_entrance.poll({ is_staging: true }))
+  .post("/matching/random/cancel/staging", random_entrance.cancel({ is_staging: true }))
+  .post("/matching/vs_cpu/entry", vs_cpu_entrance.entrance({ is_staging: false }))
+  .post("/matching/vs_cpu/entry/staging", vs_cpu_entrance.entrance({ is_staging: true }))
   .listen(PORT, () => console.log(`Listening on ${PORT}`));
 
 function somepoll<T>(
@@ -1604,7 +1639,43 @@ function main(req: Request, res: Response) {
     return;
   }
 
-  res.json(analyzeMessageAndUpdate(message, maybe_room_info));
+  res.json(analyzeMainMessageAndUpdate(message, maybe_room_info));
+}
+
+function afterhalfacceptance(req: Request, res: Response) {
+  console.log("\n sent to '/' or '/slow'");
+  console.log(JSON.stringify(req.body, null, "\t"));
+
+  const authorization = req.headers.authorization;
+  if (authorization == null) {
+    res.json({ type: "Err", why_illegal: "send with `Authorization: Bearer [token]`" });
+    return;
+  } else if (authorization.slice(0, 7) !== "Bearer ") {
+    res.json({ type: "Err", why_illegal: "send with `Authorization: Bearer [token]`" });
+    return;
+  }
+
+  const token_ = authorization.slice(7);
+  const maybe_room_info = person_to_room.get(token_ as AccessToken);
+  if (typeof maybe_room_info === "undefined") {
+    res.json({ type: "Err", why_illegal: "unrecognized user" });
+    return;
+  }
+
+  console.log("from", req.headers.authorization);
+  let message: unknown = req.body.message;
+
+  if (typeof message !== "object") {
+    res.json({ type: "Err", why_illegal: "message is of the primitive type" });
+    return;
+  }
+
+  if (message == null) {
+    res.json({ type: "Err", why_illegal: "no message" });
+    return;
+  }
+
+  res.json(analyzeAfterHalfAcceptanceMessageAndUpdate(message, maybe_room_info));
 }
 
 var waiting_list = new Set<AccessToken>();
