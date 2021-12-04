@@ -1399,7 +1399,7 @@ app
     "/poll/whethertymok",
     somepoll("/poll/whethertymok", replyToWhetherTyMokPoll),
   )
-  .post("/decision/afterhalfacceptance", (req, res) => {
+  .post("/decision/main", (req, res) => {
     (async () => {
       let time = (Math.random() * 1000) | 0;
       console.log(`start waiting for ${time}ms`);
@@ -1409,7 +1409,7 @@ app
       main(req, res);
     })();
   })
-  .post("/decision/main", (req, res) => {
+  .post("/decision/afterhalfacceptance", (req, res) => {
     (async () => {
       let time = (Math.random() * 1000) | 0;
       console.log(`start waiting for ${time}ms`);
@@ -1643,7 +1643,7 @@ function main(req: Request, res: Response) {
 }
 
 function afterhalfacceptance(req: Request, res: Response) {
-  console.log("\n sent to '/' or '/slow'");
+  console.log("\n sent to '/decision/afterhalfacceptance'");
   console.log(JSON.stringify(req.body, null, "\t"));
 
   const authorization = req.headers.authorization;
