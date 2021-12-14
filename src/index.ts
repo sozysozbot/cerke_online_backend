@@ -1399,26 +1399,10 @@ app
     "/poll/whethertymok",
     somepoll("/poll/whethertymok", replyToWhetherTyMokPoll),
   )
-  .post("/decision/main", (req, res) => {
-    (async () => {
-      let time = (Math.random() * 1000) | 0;
-      console.log(`start waiting for ${time}ms`);
-      await new Promise(r => setTimeout(r, time));
-
-      console.log("finish waiting");
-      main(req, res);
-    })();
-  })
-  .post("/decision/afterhalfacceptance", (req, res) => {
-    (async () => {
-      let time = (Math.random() * 1000) | 0;
-      console.log(`start waiting for ${time}ms`);
-      await new Promise(r => setTimeout(r, time));
-
-      console.log("finish waiting");
-      afterhalfacceptance(req, res);
-    })();
-  })
+  .post("/decision/main", main)
+  .post("/decision/normalmove", normalmove)
+  .post("/decision/infafterstep", infafterstep)
+  .post("/decision/afterhalfacceptance", afterhalfacceptance)
   .post("/matching/random/entry", random_entrance.entrance({ is_staging: false }))
   .post("/matching/random/poll", random_entrance.poll({ is_staging: false }))
   .post("/matching/random/cancel", random_entrance.cancel({ is_staging: false }))
@@ -1640,6 +1624,14 @@ function main(req: Request, res: Response) {
   }
 
   res.json(analyzeMainMessageAndUpdate(message, maybe_room_info));
+}
+
+function infafterstep(req: Request, res: Response) {
+  main(req, res)
+}
+
+function normalmove(req: Request, res: Response) {
+  main(req, res)
 }
 
 function afterhalfacceptance(req: Request, res: Response) {
