@@ -188,8 +188,7 @@ const TamMoveVerifier = t.union([
   }),
 ]);
 
-const MainVerifier = t.union([
-  InfAfterStepVerifier,
+const NormalMoveVerifier = t.union([
   NormalNonTamMoveVerifier,
   TamMoveVerifier,
 ]);
@@ -575,7 +574,7 @@ function analyzeAfterHalfAcceptanceAndUpdate(
   }
 }
 
-function analyzeInfAfterStepAndUpdate(
+function analyzeValidInfAfterStepMessageAndUpdate(
   msg: InfAfterStep,
   room_info: RoomInfoWithPerspective,
 ): RetInfAfterStep {
@@ -815,6 +814,185 @@ function replyToMainPoll(room_info: RoomInfoWithPerspective): RetMainPoll {
   return { type: "MoveMade", message: tactics, content: mov2.move };
 }
 
+function analyzeValidNormalMoveMessageAndUpdate(
+  msg: NormalMove,
+  room_info: RoomInfoWithPerspective,
+): RetNormalMove {
+  const game_state = room_to_gamestate.get(room_info.room_id)!;
+  if (msg.type === "NonTamMove") {
+    if (msg.data.type === "FromHand") {
+      if (room_info.is_IA_down_for_me) {
+        const removed = removeFromHop1Zuo1OfIAOwner(
+          game_state,
+          msg.data.color,
+          msg.data.prof,
+        );
+        const maybe_taken = setPiece(game_state, msg.data.dest, removed);
+        if (maybe_taken != null) {
+          throw new Error(
+            "should not happen: already occupied and cannot be placed from hop1 zuo1",
+          );
+        }
+      } else {
+        const removed = removeFromHop1Zuo1OfNonIAOwner(
+          game_state,
+          msg.data.color,
+          msg.data.prof,
+        );
+        const maybe_taken = setPiece(game_state, msg.data.dest, removed);
+        if (maybe_taken != null) {
+          throw new Error(
+            "should not happen: already occupied and cannot be placed from hop1 zuo1",
+          );
+        }
+      }
+
+      game_state.moves_to_be_polled[game_state.season].push({
+        byIAOwner: room_info.is_IA_down_for_me,
+        move: {
+          type: "NonTamMove",
+          data: msg.data,
+        },
+        status: null, // never completes a new hand
+      });
+
+      // never fails
+      return {
+        type: "WithoutWaterEntry"
+      };
+    }
+
+    const piece = getPiece(game_state, msg.data.src)!;
+
+    if (
+      isWater(msg.data.src) ||
+      (piece !== "Tam2" && piece.prof === Profession.Nuak1)
+    ) {
+      const {
+        hand_is_made,
+      } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
+        game_state,
+        msg.data.src,
+        msg.data.dest,
+        room_info.is_IA_down_for_me,
+      );
+      game_state.moves_to_be_polled[game_state.season].push({
+        byIAOwner: room_info.is_IA_down_for_me,
+        move: {
+          type: "NonTamMove",
+          data: msg.data,
+        },
+        status: hand_is_made ? "not yet" : null,
+      });
+      // never fails
+      return {
+        type: "WithoutWaterEntry"
+      };
+    }
+
+    if (isWater(msg.data.dest)) {
+      const ciurl: Ciurl = [
+        Math.random() < 0.5,
+        Math.random() < 0.5,
+        Math.random() < 0.5,
+        Math.random() < 0.5,
+        Math.random() < 0.5,
+      ];
+
+      const data: SrcDst | SrcStepDstFinite = (() => {
+        if (msg.data.type === "SrcDst") {
+          const ans: SrcDst = {
+            type: msg.data.type,
+            src: msg.data.src,
+            dest: msg.data.dest,
+            water_entry_ciurl: ciurl,
+          };
+          return ans;
+        } else if (msg.data.type === "SrcStepDstFinite") {
+          ifStepTamEditScore(game_state, msg.data.step, room_info);
+          const ans: SrcStepDstFinite = {
+            type: msg.data.type,
+            src: msg.data.src,
+            step: msg.data.step,
+            dest: msg.data.dest,
+            water_entry_ciurl: ciurl,
+          };
+          return ans;
+        } else {
+          const _should_not_reach_here: never = msg.data;
+          throw new Error("should not happen");
+        }
+      })();
+
+      if (ciurl.filter(a => a).length >= 3) {
+        const {
+          hand_is_made,
+        } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
+          game_state,
+          msg.data.src,
+          msg.data.dest,
+          room_info.is_IA_down_for_me,
+        );
+        game_state.moves_to_be_polled[game_state.season].push({
+          byIAOwner: room_info.is_IA_down_for_me,
+          move: { type: "NonTamMove", data },
+          status: hand_is_made ? "not yet" : null,
+        });
+      } else {
+        game_state.moves_to_be_polled[game_state.season].push({
+          byIAOwner: room_info.is_IA_down_for_me,
+          move: { type: "NonTamMove", data },
+          status: null, // never completes a move
+        });
+      }
+      const ans: RetNormalMove = { type: "WithWaterEntry", ciurl };
+      return ans;
+    } else {
+      const {
+        hand_is_made,
+      } = movePieceFromSrcToDestWhileTakingOpponentPieceIfNeeded(
+        game_state,
+        msg.data.src,
+        msg.data.dest,
+        room_info.is_IA_down_for_me,
+      );
+
+      game_state.moves_to_be_polled[game_state.season].push({
+        byIAOwner: room_info.is_IA_down_for_me,
+        move: {
+          type: "NonTamMove",
+          data: msg.data,
+        },
+        status: hand_is_made ? "not yet" : null,
+      });
+
+      const ans: RetNormalMove = {
+        type: "WithoutWaterEntry"
+      };
+      return ans;
+    }
+  } else if (msg.type === "TamMove") {
+    setPiece(game_state, msg.src, null);
+    setPiece(game_state, msg.secondDest, "Tam2");
+    // tam2 can't take
+
+    game_state.moves_to_be_polled[game_state.season].push({
+      byIAOwner: room_info.is_IA_down_for_me,
+      move: msg,
+      status: null, // never completes a hand
+    });
+
+    // Tam2 never fails water entry
+    const ans: RetNormalMove = {
+      type: "WithoutWaterEntry"
+    };
+    return ans;
+  } else {
+    let _should_not_reach_here: never = msg;
+    throw new Error("should not reach here");
+  }
+}
+
 function analyzeValidMainMessageAndUpdate(
   msg: InfAfterStep | NormalMove,
   room_info: RoomInfoWithPerspective,
@@ -822,7 +1000,7 @@ function analyzeValidMainMessageAndUpdate(
   const game_state = room_to_gamestate.get(room_info.room_id)!;
   if (msg.type === "InfAfterStep") {
     /* InfAfterStep */
-    return analyzeInfAfterStepAndUpdate(msg, room_info);
+    return analyzeValidInfAfterStepMessageAndUpdate(msg, room_info);
   } else if (msg.type === "NonTamMove") {
     if (msg.data.type === "FromHand") {
       if (room_info.is_IA_down_for_me) {
@@ -1002,24 +1180,40 @@ function analyzeValidAfterHalfAcceptanceMessageAndUpdate(
   room_info: RoomInfoWithPerspective,
 ): RetAfterHalfAcceptance {
   return analyzeAfterHalfAcceptanceAndUpdate(msg, room_info);
-
 }
 
-
-function analyzeMainMessageAndUpdate(
+function analyzeNormalMoveMessageAndUpdate(
   message: object,
   room_info: RoomInfoWithPerspective,
-): RetInfAfterStep | RetNormalMove {
+): RetNormalMove {
   const onLeft = (
     errors: t.Errors,
-  ): RetInfAfterStep | RetNormalMove => ({
+  ): RetNormalMove => ({
     type: "Err",
     why_illegal: `Invalid message format encountered in analyzeMainMessageAndUpdate(): ${errors.length} error(s) found during parsing ${JSON.stringify(message)}`,
   });
 
   return pipe(
-    MainVerifier.decode(message),
-    fold(onLeft, msg => analyzeValidMainMessageAndUpdate(msg, room_info)
+    NormalMoveVerifier.decode(message),
+    fold(onLeft, msg => analyzeValidNormalMoveMessageAndUpdate(msg, room_info)
+    ),
+  );
+}
+
+function analyzeInfAfterStepMessageAndUpdate(
+  message: object,
+  room_info: RoomInfoWithPerspective,
+): RetInfAfterStep {
+  const onLeft = (
+    errors: t.Errors,
+  ): RetInfAfterStep => ({
+    type: "Err",
+    why_illegal: `Invalid message format encountered in analyzeMainMessageAndUpdate(): ${errors.length} error(s) found during parsing ${JSON.stringify(message)}`,
+  });
+
+  return pipe(
+    InfAfterStepVerifier.decode(message),
+    fold(onLeft, msg => analyzeValidInfAfterStepMessageAndUpdate(msg, room_info)
     ),
   );
 }
@@ -1399,7 +1593,6 @@ app
     "/poll/whethertymok",
     somepoll("/poll/whethertymok", replyToWhetherTyMokPoll),
   )
-  .post("/decision/main", main)
   .post("/decision/normalmove", normalmove)
   .post("/decision/infafterstep", infafterstep)
   .post("/decision/afterhalfacceptance", afterhalfacceptance)
@@ -1565,7 +1758,6 @@ function whethertymok_tymok(req: Request, res: Response) {
 }
 
 function whethertymok_taxot(req: Request, res: Response) {
-  console.log("\n sent to '/whethertymok/taxot'");
   console.log(JSON.stringify(req.body, null, "\t"));
 
   const authorization = req.headers.authorization;
@@ -1590,7 +1782,7 @@ function whethertymok_taxot(req: Request, res: Response) {
   return;
 }
 
-function main(req: Request, res: Response) {
+function infafterstep(req: Request, res: Response) {
   console.log("\n sent to '/' or '/slow'");
   console.log(JSON.stringify(req.body, null, "\t"));
 
@@ -1623,15 +1815,43 @@ function main(req: Request, res: Response) {
     return;
   }
 
-  res.json(analyzeMainMessageAndUpdate(message, maybe_room_info));
-}
-
-function infafterstep(req: Request, res: Response) {
-  main(req, res)
+  res.json(analyzeInfAfterStepMessageAndUpdate(message, maybe_room_info));
 }
 
 function normalmove(req: Request, res: Response) {
-  main(req, res)
+  console.log("\n sent to '/' or '/slow'");
+  console.log(JSON.stringify(req.body, null, "\t"));
+
+  const authorization = req.headers.authorization;
+  if (authorization == null) {
+    res.json({ type: "Err", why_illegal: "send with `Authorization: Bearer [token]`" });
+    return;
+  } else if (authorization.slice(0, 7) !== "Bearer ") {
+    res.json({ type: "Err", why_illegal: "send with `Authorization: Bearer [token]`" });
+    return;
+  }
+
+  const token_ = authorization.slice(7);
+  const maybe_room_info = person_to_room.get(token_ as AccessToken);
+  if (typeof maybe_room_info === "undefined") {
+    res.json({ type: "Err", why_illegal: "unrecognized user" });
+    return;
+  }
+
+  console.log("from", req.headers.authorization);
+  let message: unknown = req.body.message;
+
+  if (typeof message !== "object") {
+    res.json({ type: "Err", why_illegal: "message is of the primitive type" });
+    return;
+  }
+
+  if (message == null) {
+    res.json({ type: "Err", why_illegal: "no message" });
+    return;
+  }
+
+  res.json(analyzeNormalMoveMessageAndUpdate(message, maybe_room_info));
 }
 
 function afterhalfacceptance(req: Request, res: Response) {
