@@ -1454,12 +1454,12 @@ function receiveTyMokAndUpdate(room_info: RoomInfoWithPerspective): RetTyMok {
 
   if (typeof final_obj === "undefined") {
     console.log("no last move");
-    return { type: "Err" };
+    return { type: "Err", why_illegal: "no last move" };
   }
 
   if (final_obj.status == null) {
     console.log("no hand");
-    return { type: "Err" };
+    return { type: "Err", why_illegal: "no hand" };
   }
 
   final_obj.status = "ty mok1";
@@ -1484,12 +1484,12 @@ function receiveTaXotAndUpdate(room_info: RoomInfoWithPerspective): RetTaXot {
 
   if (typeof final_obj === "undefined") {
     console.log("no last move");
-    return { type: "Err" };
+    return { type: "Err", why_illegal: "no last move" };
   }
 
   if (final_obj.status == null) {
     console.log("no hand");
-    return { type: "Err" };
+    return { type: "Err", why_illegal: "no hand" };
   }
 
   final_obj.status = "ta xot1";
