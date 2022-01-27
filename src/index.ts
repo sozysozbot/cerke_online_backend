@@ -36,26 +36,32 @@ import { create_initialized_board } from "./create_initialized_board";
 
 // For the notifier. I don't think it should live in index.ts, but for now let's just do it
 import Discord from "discord.js";
-const client = new Discord.Client();
-client.once('ready', () => {
-  // channel #バックエンド起動ログ
-  (client.channels.cache.get('900419722313601114')! as Discord.TextChannel).send('cerke online discord notifier is Ready!')
-});
 
-client.login(process.env.DISCORD_NOTIFIER_TOKEN);
-
-const publicly_announce_matching = (msg: string, is_staging: boolean) => {
-  if (is_staging) {
-    // channel #デバッグ環境マッチングログ
-    (client.channels.cache.get('902952289378115625')! as Discord.TextChannel).send(msg)
-
-  } else {
-    // channel #本番環境マッチングログ
-    (client.channels.cache.get('900417626243731537')! as Discord.TextChannel).send(msg)
+const publicly_announce_matching = (() => {
+  if (process.env.PUBLIC_ANNOUNCEMENT === "DISCORD") {
+    const client = new Discord.Client();
+    client.once('ready', () => {
+      // channel #バックエンド起動ログ
+      (client.channels.cache.get('900419722313601114')! as Discord.TextChannel).send('cerke online discord notifier is Ready!')
+    });
+    
+    client.login(process.env.DISCORD_NOTIFIER_TOKEN);
+    
+    return (msg: string, is_staging: boolean) => {
+      if (is_staging) {
+        // channel #デバッグ環境マッチングログ
+        (client.channels.cache.get('902952289378115625')! as Discord.TextChannel).send(msg)
+        
+      } else {
+        // channel #本番環境マッチングログ
+        (client.channels.cache.get('900417626243731537')! as Discord.TextChannel).send(msg)
+      }
+    };
   }
-};
-
-
+  return (_msg: string, _is_staging: boolean) => { };
+})();
+  
+  
 type RoomId = string & { __RoomIdBrand: never };
 type AccessToken = string & { __AccessTokenBrand: never };
 type BotToken = string & { __BotTokenBrand: never };
