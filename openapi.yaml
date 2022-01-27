@@ -1,0 +1,568 @@
+openapi: 3.0.3
+info:
+  title: "Creme Online Backend API"
+  version: "0.1.0"
+paths:
+  /poll/main:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties: {}
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: "#/components/schemas/RetMainPoll"
+                  - $ref: "#/components/schemas/NonLegalError"
+  /poll/inf:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties: {}
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: "#/components/schemas/RetInfPoll"
+                  - $ref: "#/components/schemas/NonLegalError"
+  /decision/tymok:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties: {}
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: "#/components/schemas/RetTyMok"
+                  - $ref: "#/components/schemas/ErrorWithoutReason"
+  /decision/taxot:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties: {}
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: "#/components/schemas/RetTaXot"
+                  - $ref: "#/components/schemas/ErrorWithoutReason"
+  /poll/whethertymok:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties: {}
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: "#/components/schemas/RetWhetherTyMokPoll"
+                  - $ref: "#/components/schemas/NonLegalError"
+  /decision/main:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - message
+              properties:
+                message:
+                  $ref: "#/components/schemas/Main"
+
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: "#/components/schemas/RetMainDecision"
+                  - $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - why_illegal
+      properties:
+        type:
+          type: string
+          enum: ["Err"]
+        why_illegal:
+          type: string
+    ErrorWithoutReason:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: ["Err"]
+    NonLegalError:
+      type: object
+      additionalProperties: false
+      required:
+        - legal
+        - whyIllegal
+      properties:
+        legal:
+          type: boolean
+          enum: [false]
+        whyIllegal:
+          type: string
+    RetMainPoll:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+            - content
+          properties:
+            type:
+              type: string
+              enum: ["MoveMade"]
+            message:
+              $ref: '#/components/schemas/TacticsKey'
+            content:
+              $ref: '#/components/schemas/MoveToBePolled'
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+          properties:
+            type:
+              enum: ["NotYetDetermined"]
+        - $ref: '#/components/schemas/Error'
+    TacticsKey:
+      type: string
+      enum:
+        - victory_almost_certain
+        - strengthened_shaman
+        - free_lunch
+        - avoid_defeat
+        - loss_almost_certain
+        - neutral
+    MoveToBePolled:
+      anyOf:
+        - $ref: '#/components/schemas/MoveToBePolledWithPotentialWaterEntry'
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+            - data
+          properties:
+            type:
+              type: string
+              enum: ["NonTamMove"]
+            data:
+              type: object
+              additionalProperties: false
+              required:
+                - type
+                - color
+                - prof
+                - dest
+              properties:
+                type:
+                  type: string
+                  enum: ["FromHand"]
+                color:
+                  $ref: '#/components/schemas/Color'
+                prof:
+                  $ref: '#/components/schemas/Profession'
+                dest:
+                  $ref: '#/components/schemas/AbsoluteCoord'
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+            - stepStyle
+            - src
+            - firstDest
+            - secondDest
+          properties:
+            type:
+              type: string
+              enum: ["TamMove"]
+            stepStyle:
+              type: string
+              enum: ["NoStep"]
+            src:
+              $ref: '#/components/schemas/AbsoluteCoord'
+            firstDest:
+              $ref: '#/components/schemas/AbsoluteCoord'
+            secondDest:
+              $ref: '#/components/schemas/AbsoluteCoord'
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+            - stepStyle
+            - src
+            - step
+            - firstDest
+            - secondDest
+          properties:
+            type:
+              type: string
+              enum: ["TamMove"]
+            stepStyle:
+              type: string
+              enum: ["StepsDuringFormer", "StepsDuringLatter"]
+            src:
+              $ref: '#/components/schemas/AbsoluteCoord'
+            step:
+              $ref: '#/components/schemas/AbsoluteCoord'
+            firstDest:
+              $ref: '#/components/schemas/AbsoluteCoord'
+            secondDest:
+              $ref: '#/components/schemas/AbsoluteCoord'
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+            - src
+            - step
+            - plannedDirection
+            - stepping_ciurl
+            - finalResult
+          properties:
+            type:
+              type: string
+              enum: ["InfAfterStep"]
+            src:
+              $ref: '#/components/schemas/AbsoluteCoord'
+            step:
+              $ref: '#/components/schemas/AbsoluteCoord'
+            plannedDirection:
+              $ref: '#/components/schemas/AbsoluteCoord'
+            stepping_ciurl:
+              $ref: '#/components/schemas/Ciurl'
+            finalResult:
+              type: object
+              additionalProperties: false
+              nullable: true
+              required:
+                - dest
+                - thwarted_by_failing_water_entry_ciurl
+              properties:
+                dest:
+                  $ref: '#/components/schemas/AbsoluteCoord'
+                water_entry_ciurl:
+                  $ref: '#/components/schemas/Ciurl'
+                thwarted_by_failing_water_entry_ciurl:
+                  allOf:
+                    - $ref: '#/components/schemas/Ciurl'
+                  nullable: true
+    Color:
+      type: integer
+      enum: [0, 1]
+    Profession:
+      type: integer
+      enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    AbsoluteCoord:
+      type: object
+      additionalProperties: false
+      required:
+        - row
+        - column
+      properties:
+        row:
+          $ref: '#/components/schemas/AbsoluteRow'
+        column:
+          $ref: '#/components/schemas/AbsoluteColumn'
+    Ciurl:
+      type: array
+      items:
+        type: boolean
+      minItems: 5
+      maxItems: 5
+    AbsoluteRow:
+      type: string
+      enum:
+        - 'A'
+        - 'E'
+        - 'I'
+        - 'U'
+        - 'O'
+        - 'Y'
+        - 'AI'
+        - 'AU'
+        - 'IA'
+    AbsoluteColumn:
+      type: string
+      enum:
+        - 'K'
+        - 'L'
+        - 'N'
+        - 'T'
+        - 'Z'
+        - 'X'
+        - 'C'
+        - 'M'
+        - 'P'
+    RetInfPoll:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+            - content
+          properties:
+            type:
+              type: string
+              enum: ["MoveMade"]
+            content:
+              $ref: '#/components/schemas/MoveToBePolled'
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+          properties:
+            type:
+              enum: ["NotYetDetermined"]
+        - $ref: '#/components/schemas/Error'
+    RetTyMok:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: ["Ok"]
+        - $ref: '#/components/schemas/Error'
+    RetTaXot:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+            - is_first_move_my_move
+          properties:
+            type:
+              type: string
+              enum: ["Ok"]
+            is_first_move_my_move:
+              $ref: '#/components/schemas/WhoGoesFirst'
+              nullable: true
+        - $ref: '#/components/schemas/Error'
+    WhoGoesFirst:
+      type: object
+      additionalProperties: false
+      required:
+        - process
+        - result
+      properties:
+        process:
+          type: array
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Ciurl'
+            minItems: 2
+            maxItems: 2
+        result:
+          type: boolean
+    RetWhetherTyMokPoll:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: ["TyMok"]
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+            - is_first_move_my_move
+          properties:
+            type:
+              type: string
+              enum: ["TaXot"]
+            is_first_move_my_move:
+              $ref: '#/components/schemas/WhoGoesFirst'
+              nullable: true
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+          properties:
+            type:
+              enum: ["NotYetDetermined"]
+        - $ref: '#/components/schemas/Error'
+    Main:
+      anyOf:
+        - $ref: '#/components/schemas/InfAfterStep'
+        - $ref: '#/components/schemas/NormalNonTamMove'
+        - $ref: '#/components/schemas/TamMove'
+    InfAfterStep:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - src
+        - step
+        - plannedDirection
+      properties:
+        type:
+          type: string
+          enum: ["InfAfterStep"]
+        src:
+          $ref: '#/components/schemas/AbsoluteCoord'
+        step:
+          $ref: '#/components/schemas/AbsoluteCoord'
+        plannedDirection:
+          $ref: '#/components/schemas/AbsoluteCoord'
+    NormalNonTamMove:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - data
+      properties:
+        type:
+          type: string
+          enum: ["NonTamMove"]
+        data:
+          anyOf:
+            - type: object
+              additionalProperties: false
+              required:
+                - type
+                - color
+                - prof
+                - dest
+              properties:
+                type:
+                  type: string
+                  enum: ["FromHand"]
+                color:
+                  $ref: '#/components/schemas/Color'
+                prof:
+                  $ref: '#/components/schemas/Profession'
+                dest:
+                  $ref: '#/components/schemas/AbsoluteCoord'
+            - type: object
+              additionalProperties: false
+              required:
+                - type
+                - src
+                - dest
+              properties:
+                type:
+                  type: string
+                  enum: ["SrcDst"]
+                src:
+                  $ref: '#/components/schemas/AbsoluteCoord'
+                dest:
+                  $ref: '#/components/schemas/AbsoluteCoord'
+            - type: object
+              additionalProperties: false
+              required:
+                - type
+                - src
+                - step
+                - dest
+              properties:
+                type:
+                  type: string
+                  enum: ["SrcStepDstFinite"]
+                src:
+                  $ref: '#/components/schemas/AbsoluteCoord'
+                step:
+                  $ref: '#/components/schemas/AbsoluteCoord'
+                dest:
+                  $ref: '#/components/schemas/AbsoluteCoord'
+    TamMove:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+            - stepStyle
+            - src
+            - firstDest
+            - secondDest
+          properties:
+            type:
+              type: string
+              enum: ["TamMove"]
+            stepStyle:
+              type: string
+              enum: ["NoStep"]
+            src:
+              $ref: '#/components/schemas/AbsoluteCoord'
+            firstDest:
+              $ref: '#/components/schemas/AbsoluteCoord'
+            secondDest:
+              $ref: '#/components/schemas/AbsoluteCoord'
+        - type: object
+          additionalProperties: false
+          required:
+            - type
+            - stepStyle
+            - src
+            - step
+            - firstDest
+            - secondDest
+          properties:
+            type:
+              type: string
+              enum: ["TamMove"]
+            stepStyle:
+              type: string
+              enum: ["StepsDuringFormer", "StepsDuringLatter"]
+            src:
+              $ref: '#/components/schemas/AbsoluteCoord'
+            step:
+              $ref: '#/components/schemas/AbsoluteCoord'
+            firstDest:
+              $ref: '#/components/schemas/AbsoluteCoord'
+            secondDest:
+              $ref: '#/components/schemas/AbsoluteCoord'
