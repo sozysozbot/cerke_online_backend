@@ -43,13 +43,6 @@ export function useHandler(app: express.Express, handler: OpenAPIHandler) {
     }),
   );
 
-  app.use((err: any, req: any, res: any, next: any) => {
-    res.status(err.status ?? 500).json({
-      message: err.message,
-      errors: err.errors,
-    });
-  });
-
   for (const [path, methods] of Object.entries(handler)) {
     for (const [method, handler] of Object.entries(methods)) {
       app[method as "get" | "post"](path, async (req, res) => {
