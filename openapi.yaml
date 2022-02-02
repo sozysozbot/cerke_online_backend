@@ -5,6 +5,7 @@ info:
 paths:
   /poll/main:
     post:
+      operationId: "pollMain"
       requestBody:
         content:
           application/json:
@@ -23,6 +24,7 @@ paths:
                   - $ref: "#/components/schemas/NonLegalError"
   /poll/inf:
     post:
+      operationId: "pollInf"
       requestBody:
         content:
           application/json:
@@ -41,6 +43,7 @@ paths:
                   - $ref: "#/components/schemas/NonLegalError"
   /decision/tymok:
     post:
+      operationId: "tymokDecision"
       requestBody:
         content:
           application/json:
@@ -59,6 +62,7 @@ paths:
                   - $ref: "#/components/schemas/ErrorWithoutReason"
   /decision/taxot:
     post:
+      operationId: "decisionTaxot"
       requestBody:
         content:
           application/json:
@@ -77,6 +81,7 @@ paths:
                   - $ref: "#/components/schemas/ErrorWithoutReason"
   /poll/whethertymok:
     post:
+      operationId: "pollWhethertymok"
       requestBody:
         content:
           application/json:
@@ -93,29 +98,6 @@ paths:
                 anyOf:
                   - $ref: "#/components/schemas/RetWhetherTyMokPoll"
                   - $ref: "#/components/schemas/NonLegalError"
-  /decision/main:
-    post:
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required:
-                - message
-              properties:
-                message:
-                  $ref: "#/components/schemas/Main"
-
-      responses:
-        200:
-          description: "Success"
-          content:
-            application/json:
-              schema:
-                anyOf:
-                  - $ref: "#/components/schemas/RetMainDecision"
-                  - $ref: "#/components/schemas/Error"
 components:
   schemas:
     Error:
@@ -436,11 +418,6 @@ components:
             type:
               enum: ["NotYetDetermined"]
         - $ref: '#/components/schemas/Error'
-    Main:
-      anyOf:
-        - $ref: '#/components/schemas/InfAfterStep'
-        - $ref: '#/components/schemas/NormalNonTamMove'
-        - $ref: '#/components/schemas/TamMove'
     InfAfterStep:
       type: object
       additionalProperties: false
@@ -566,3 +543,54 @@ components:
               $ref: '#/components/schemas/AbsoluteCoord'
             secondDest:
               $ref: '#/components/schemas/AbsoluteCoord'
+    MoveToBePolledWithPotentialWaterEntry:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - data
+      properties:
+        type:
+          type: string
+          enum: ["NonTamMove"]
+        data:
+          anyOf:
+            - $ref: '#/components/schemas/SrcDst'
+            - $ref: '#/components/schemas/SrcStepDstFinite'
+    SrcDst:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - src
+        - dest
+      properties:
+        type:
+          type: string
+          enum: ["SrcDst"]
+        src:
+          $ref: '#/components/schemas/AbsoluteCoord'
+        dest:
+          $ref: '#/components/schemas/AbsoluteCoord'
+        water_entry_ciurl:
+          $ref: '#/components/schemas/Ciurl'
+    SrcStepDstFinite:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - src
+        - step
+        - dest
+      properties:
+        type:
+          type: string
+          enum: ["SrcStepDstFinite"]
+        src:
+          $ref: '#/components/schemas/AbsoluteCoord'
+        step:
+          $ref: '#/components/schemas/AbsoluteCoord'
+        dest:
+          $ref: '#/components/schemas/AbsoluteCoord'
+        water_entry_ciurl:
+          $ref: '#/components/schemas/Ciurl'
