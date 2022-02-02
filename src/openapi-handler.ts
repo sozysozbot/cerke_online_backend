@@ -34,7 +34,10 @@ export type Ctx<Op extends Operation<unknown, unknown>> = {
 type Cast<A, R> = A extends R ? A : R;
 type Get<A, K extends keyof any> = Cast<A, Record<K, unknown>>[K];
 
-export function useHandler(app: express.Express, handler: OpenAPIHandler) {
+export function useHandler(
+  app: express.Express,
+  handler: OpenAPIHandler,
+): express.Express {
   app.use(
     OpenApiValidator.middleware({
       apiSpec: "../openapi.yaml",
@@ -55,4 +58,6 @@ export function useHandler(app: express.Express, handler: OpenAPIHandler) {
       });
     }
   }
+
+  return app;
 }
