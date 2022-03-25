@@ -1344,7 +1344,7 @@ const vs_cpu_battle = (() => {
 
     return {
       type: "LetTheGameBegin",
-      access_token: newToken,
+      session_token: newToken,
       is_first_move_my_move: is_first_turn_newToken_turn[0 /* spring */],
       is_IA_down_for_me: is_IA_down_for_newToken,
     };
@@ -1358,11 +1358,11 @@ const vs_cpu_battle = (() => {
 
 const random_battle = (() => {
   const RandomBattlePollVerifier = t.strict({
-    access_token: t.string,
+    session_token: t.string,
   });
 
   const RandomBattleCancelVerifier = t.strict({
-    access_token: t.string,
+    session_token: t.string,
   });
   function random_battle_poll(o: { is_staging: boolean }) {
     return (req: Request, res: Response) => {
@@ -1374,8 +1374,8 @@ const random_battle = (() => {
       return res.json(
         pipe(
           RandomBattlePollVerifier.decode(req.body),
-          fold(onLeft, function (msg: { access_token: string }): RetRandomPoll {
-            const session_token = msg.access_token as SessionToken;
+          fold(onLeft, function (msg: { session_token: string }): RetRandomPoll {
+            const session_token = msg.session_token as SessionToken;
             const maybe_room_id:
               | RoomInfoWithPerspective
               | undefined = person_to_room.get(session_token);
@@ -1384,7 +1384,7 @@ const random_battle = (() => {
                 type: "Ok",
                 ret: {
                   type: "LetTheGameBegin",
-                  access_token: msg.access_token,
+                  session_token: msg.session_token,
                   is_first_move_my_move:
                     maybe_room_id.is_first_move_my_move[0 /* spring */],
                   is_IA_down_for_me: maybe_room_id.is_IA_down_for_me,
@@ -1396,7 +1396,7 @@ const random_battle = (() => {
                 type: "Ok",
                 ret: {
                   type: "InWaitingList",
-                  access_token: msg.access_token,
+                  session_token: msg.session_token,
                 },
               };
             } else {
@@ -1425,8 +1425,8 @@ Please reapply by sending an empty object to random/entry .`,
       return res.json(
         pipe(
           RandomBattleCancelVerifier.decode(req.body),
-          fold(onLeft, function (msg: { access_token: string }): RetRandomCancel {
-            const session_token = msg.access_token as SessionToken;
+          fold(onLeft, function (msg: { session_token: string }): RetRandomCancel {
+            const session_token = msg.session_token as SessionToken;
             const maybe_room_id:
               | RoomInfoWithPerspective
               | undefined = person_to_room.get(session_token);
@@ -1545,7 +1545,7 @@ Please reapply by sending an empty object to random/entry .`,
       // exit after finding the first person
       return {
         type: "LetTheGameBegin",
-        access_token: newToken,
+        session_token: newToken,
         is_first_move_my_move: is_first_turn_newToken_turn[0 /* spring */],
         is_IA_down_for_me: is_IA_down_for_newToken,
       };
@@ -1563,7 +1563,7 @@ Please reapply by sending an empty object to random/entry .`,
     );
     return {
       type: "InWaitingList",
-      access_token: newToken,
+      session_token: newToken,
     };
   }
 
