@@ -1357,11 +1357,11 @@ const vs_cpu_battle = (() => {
 })();
 
 const random_battle = (() => {
-  const RandomEntrancePollVerifier = t.strict({
+  const RandomBattlePollVerifier = t.strict({
     access_token: t.string,
   });
 
-  const RandomEntranceCancelVerifier = t.strict({
+  const RandomBattleCancelVerifier = t.strict({
     access_token: t.string,
   });
   function random_battle_poll(o: { is_staging: boolean }) {
@@ -1373,7 +1373,7 @@ const random_battle = (() => {
 
       return res.json(
         pipe(
-          RandomEntrancePollVerifier.decode(req.body),
+          RandomBattlePollVerifier.decode(req.body),
           fold(onLeft, function (msg: { access_token: string }): RetRandomPoll {
             const access_token = msg.access_token as AccessToken;
             const maybe_room_id:
@@ -1424,7 +1424,7 @@ Please reapply by sending an empty object to random/entry .`,
 
       return res.json(
         pipe(
-          RandomEntranceCancelVerifier.decode(req.body),
+          RandomBattleCancelVerifier.decode(req.body),
           fold(onLeft, function (msg: { access_token: string }): RetRandomCancel {
             const access_token = msg.access_token as AccessToken;
             const maybe_room_id:
