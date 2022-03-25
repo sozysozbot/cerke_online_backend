@@ -19,7 +19,8 @@ import {
   SrcDst,
   SrcStepDstFinite,
   MoveToBePolled,
-  Color, Profession, RetTyMok, RetTaXot, WhoGoesFirst, RetWhetherTyMokPoll, RetInfPoll, RetVsCpuEntry
+  Color, Profession, RetTyMok, RetTaXot, WhoGoesFirst, RetWhetherTyMokPoll, RetInfPoll, RetVsCpuEntry,
+  RetFriendPoll, RetFriendDeleteRoom, RetFriendMakeRoom, RetFriendJoinRoom
 } from "cerke_online_api";
 
 import { Hand, ObtainablePieces, calculate_hands_and_score_from_pieces } from "cerke_hands_and_score";
@@ -44,14 +45,14 @@ const publicly_announce_matching = (() => {
       // channel #バックエンド起動ログ
       (client.channels.cache.get('900419722313601114')! as Discord.TextChannel).send('cerke online discord notifier is Ready!')
     });
-    
+
     client.login(process.env.DISCORD_NOTIFIER_TOKEN);
-    
+
     return (msg: string, is_staging: boolean) => {
       if (is_staging) {
         // channel #デバッグ環境マッチングログ
         (client.channels.cache.get('902952289378115625')! as Discord.TextChannel).send(msg)
-        
+
       } else {
         // channel #本番環境マッチングログ
         (client.channels.cache.get('900417626243731537')! as Discord.TextChannel).send(msg)
@@ -60,9 +61,10 @@ const publicly_announce_matching = (() => {
   }
   return (_msg: string, _is_staging: boolean) => { };
 })();
-  
-  
+
+
 type RoomId = string & { __RoomIdBrand: never };
+type RoomKey = string & { __RoomKeyBrand: never };
 type SessionToken = string & { __SessionTokenBrand: never };
 type BotToken = string & { __BotTokenBrand: never };
 
@@ -1282,7 +1284,7 @@ const vs_cpu_battle = (() => {
 
     const is_IA_down_for_newToken = Math.random() < 0.5;
 
-    person_to_room.set(newToken, {
+    person_to_fully_occupied_room.set(newToken, {
       room_id,
       is_first_move_my_move: is_first_turn_newToken_turn,
       is_IA_down_for_me: is_IA_down_for_newToken,
@@ -1356,6 +1358,93 @@ const vs_cpu_battle = (() => {
   };
 })();
 
+function initializeRoomBetweenTwoPeopleAndBegin(o: {
+  token: SessionToken, newToken: SessionToken, is_staging: boolean, room_id: RoomId
+}): {
+  type: "LetTheGameBegin";
+  session_token: string;
+  is_first_move_my_move: WhoGoesFirst;
+  is_IA_down_for_me: boolean;
+} {
+  const token = o.token;
+  const newToken = o.newToken;
+  const room_id = o.room_id;
+  const is_first_turn_newToken_turn: Tuple4<WhoGoesFirst> = [
+    decide_who_goes_first(),
+    decide_who_goes_first(),
+    decide_who_goes_first(),
+    decide_who_goes_first(),
+  ];
+
+  const is_IA_down_for_newToken = Math.random() < 0.5;
+
+  person_to_fully_occupied_room.set(newToken, {
+    room_id,
+    is_first_move_my_move: is_first_turn_newToken_turn,
+    is_IA_down_for_me: is_IA_down_for_newToken,
+  });
+  person_to_fully_occupied_room.set(token, {
+    room_id,
+    is_first_move_my_move: [
+      swap_who_goes_first(is_first_turn_newToken_turn[0]),
+      swap_who_goes_first(is_first_turn_newToken_turn[1]),
+      swap_who_goes_first(is_first_turn_newToken_turn[2]),
+      swap_who_goes_first(is_first_turn_newToken_turn[3]),
+    ],
+    is_IA_down_for_me: !is_IA_down_for_newToken,
+  });
+  room_to_gamestate.set(room_id, {
+    tam_itself_is_tam_hue: true,
+    season: 0,
+    log2_rate: 0,
+    IA_owner_s_score: 20,
+    is_IA_owner_s_turn:
+      is_first_turn_newToken_turn[0 /* spring */].result ===
+      is_IA_down_for_newToken,
+    f: {
+      currentBoard: create_initialized_board(),
+      hop1zuo1OfIAOwner: [],
+      hop1zuo1OfNonIAOwner: [],
+    },
+    waiting_for_after_half_acceptance: null,
+    moves_to_be_polled: [[], [], [], []],
+  });
+  console.log(
+    `Opened a room ${room_id} to be used by ${newToken} and ${token}.`,
+  );
+  publicly_announce_matching(
+    `Opened a room ${sha256_first7(room_id)} to be used by ${sha256_first7(newToken)} and ${sha256_first7(token)}.`,
+    o.is_staging
+  );
+
+  console.log(
+    `${is_first_turn_newToken_turn[0 /* spring */] ? newToken : token
+    } moves first.`,
+  );
+  publicly_announce_matching(
+    `${is_first_turn_newToken_turn[0 /* spring */] ? sha256_first7(newToken) : sha256_first7(token)
+    } moves first.`,
+    o.is_staging
+  );
+
+  console.log(
+    `IA is down, from the perspective of ${is_IA_down_for_newToken ? newToken : token
+    }.`,
+  );
+  publicly_announce_matching(
+    `IA is down, from the perspective of ${is_IA_down_for_newToken ? sha256_first7(newToken) : sha256_first7(token)
+    }.`,
+    o.is_staging
+  );
+
+  return {
+    type: "LetTheGameBegin",
+    session_token: newToken,
+    is_first_move_my_move: is_first_turn_newToken_turn[0 /* spring */],
+    is_IA_down_for_me: is_IA_down_for_newToken,
+  };
+}
+
 const random_battle = (() => {
   const RandomBattlePollVerifier = t.strict({
     session_token: t.string,
@@ -1378,7 +1467,7 @@ const random_battle = (() => {
             const session_token = msg.session_token as SessionToken;
             const maybe_room_id:
               | RoomInfoWithPerspective
-              | undefined = person_to_room.get(session_token);
+              | undefined = person_to_fully_occupied_room.get(session_token);
             if (typeof maybe_room_id !== "undefined") {
               return {
                 type: "Ok",
@@ -1390,7 +1479,7 @@ const random_battle = (() => {
                   is_IA_down_for_me: maybe_room_id.is_IA_down_for_me,
                 },
               };
-            } else if (waiting_list.has(session_token)) {
+            } else if (random_match_waiting_list.has(session_token)) {
               // not yet assigned a room, but is in the waiting list
               return {
                 type: "Ok",
@@ -1429,7 +1518,7 @@ Please reapply by sending an empty object to random/entry .`,
             const session_token = msg.session_token as SessionToken;
             const maybe_room_id:
               | RoomInfoWithPerspective
-              | undefined = person_to_room.get(session_token);
+              | undefined = person_to_fully_occupied_room.get(session_token);
 
             // you already have a room. you cannot cancel
             if (typeof maybe_room_id !== "undefined") {
@@ -1437,12 +1526,12 @@ Please reapply by sending an empty object to random/entry .`,
                 type: "Ok",
                 cancellable: false,
               };
-            } else if (waiting_list.has(session_token)) {
+            } else if (random_match_waiting_list.has(session_token)) {
               // not yet assigned a room, but is in the waiting list
-              waiting_list.delete(session_token);
+              random_match_waiting_list.delete(session_token);
               console.log(`Canceled ${session_token}.`);
               publicly_announce_matching(`Canceled ${sha256_first7(session_token)}. 
-            The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`, o.is_staging);
+            The current waiting list is [${Array.from(random_match_waiting_list.values(), sha256_first7).join(", ")}]`, o.is_staging);
               return {
                 type: "Ok",
                 cancellable: true,
@@ -1469,96 +1558,24 @@ Please reapply by sending an empty object to random/entry .`,
 
   function randomEntry(o: { is_staging: boolean }): RetRandomEntry {
     const newToken: SessionToken = uuidv4() as SessionToken;
-    for (let token of waiting_list) {
-      waiting_list.delete(token);
-      publicly_announce_matching(`The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`, o.is_staging);
-      const room_id = open_a_room(token, newToken, o.is_staging);
-
-      const is_first_turn_newToken_turn: Tuple4<WhoGoesFirst> = [
-        decide_who_goes_first(),
-        decide_who_goes_first(),
-        decide_who_goes_first(),
-        decide_who_goes_first(),
-      ];
-
-      const is_IA_down_for_newToken = Math.random() < 0.5;
-
-      person_to_room.set(newToken, {
-        room_id,
-        is_first_move_my_move: is_first_turn_newToken_turn,
-        is_IA_down_for_me: is_IA_down_for_newToken,
-      });
-      person_to_room.set(token, {
-        room_id,
-        is_first_move_my_move: [
-          swap_who_goes_first(is_first_turn_newToken_turn[0]),
-          swap_who_goes_first(is_first_turn_newToken_turn[1]),
-          swap_who_goes_first(is_first_turn_newToken_turn[2]),
-          swap_who_goes_first(is_first_turn_newToken_turn[3]),
-        ],
-        is_IA_down_for_me: !is_IA_down_for_newToken,
-      });
-      room_to_gamestate.set(room_id, {
-        tam_itself_is_tam_hue: true,
-        season: 0,
-        log2_rate: 0,
-        IA_owner_s_score: 20,
-        is_IA_owner_s_turn:
-          is_first_turn_newToken_turn[0 /* spring */].result ===
-          is_IA_down_for_newToken,
-        f: {
-          currentBoard: create_initialized_board(),
-          hop1zuo1OfIAOwner: [],
-          hop1zuo1OfNonIAOwner: [],
-        },
-        waiting_for_after_half_acceptance: null,
-        moves_to_be_polled: [[], [], [], []],
-      });
-      console.log(
-        `Opened a room ${room_id} to be used by ${newToken} and ${token}.`,
-      );
-      publicly_announce_matching(
-        `Opened a room ${sha256_first7(room_id)} to be used by ${sha256_first7(newToken)} and ${sha256_first7(token)}.`,
-        o.is_staging
-      );
-
-      console.log(
-        `${is_first_turn_newToken_turn[0 /* spring */] ? newToken : token
-        } moves first.`,
-      );
-      publicly_announce_matching(
-        `${is_first_turn_newToken_turn[0 /* spring */] ? sha256_first7(newToken) : sha256_first7(token)
-        } moves first.`,
-        o.is_staging
-      );
-
-      console.log(
-        `IA is down, from the perspective of ${is_IA_down_for_newToken ? newToken : token
-        }.`,
-      );
-      publicly_announce_matching(
-        `IA is down, from the perspective of ${is_IA_down_for_newToken ? sha256_first7(newToken) : sha256_first7(token)
-        }.`,
-        o.is_staging
-      );
-
-      // exit after finding the first person
-      return {
-        type: "LetTheGameBegin",
-        session_token: newToken,
-        is_first_move_my_move: is_first_turn_newToken_turn[0 /* spring */],
-        is_IA_down_for_me: is_IA_down_for_newToken,
-      };
+    for (let token of random_match_waiting_list) {
+      random_match_waiting_list.delete(token);
+      publicly_announce_matching(`The current waiting list is [${Array.from(random_match_waiting_list.values(), sha256_first7).join(", ")}]`, o.is_staging);
+      console.log("A random match between", token, "and", newToken, "will begin.");
+      publicly_announce_matching(`A random match between ${sha256_first7(token)} and ${sha256_first7(newToken)} will begin.`, o.is_staging)
+      const room_id = uuidv4() as RoomId
+      // exit the loop after finding the first person
+      return initializeRoomBetweenTwoPeopleAndBegin({ token, newToken, is_staging: o.is_staging, room_id })
     }
 
     // If you are still here, that means no one is found
-    waiting_list.add(newToken);
+    random_match_waiting_list.add(newToken);
     console.log(
       `Cannot find a partner for ${newToken}, who will thus be put in the waiting list.`,
     );
     publicly_announce_matching(
       `Cannot find a partner for ${sha256_first7(newToken)}, who will thus be put in the waiting list.
-      The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`,
+      The current waiting list is [${Array.from(random_match_waiting_list.values(), sha256_first7).join(", ")}]`,
       o.is_staging
     );
     return {
@@ -1572,6 +1589,193 @@ Please reapply by sending an empty object to random/entry .`,
     poll: random_battle_poll,
     cancel: random_battle_cancel,
   };
+})();
+
+const friend_battle = (() => {
+  const FriendBattlePollVerifier = t.strict({
+    session_token: t.string,
+  });
+
+  const FriendJoinRoomVerifier = t.strict({
+    room_id: t.string,
+    room_key: t.string,
+  });
+
+  const FriendDeleteRoomVerifier = t.strict({
+    session_token: t.string,
+  });
+
+  function vsFriendMakeRoom(is_staging: boolean): RetFriendMakeRoom {
+    const session_token = uuidv4() as SessionToken;
+    const room_id = uuidv4() as RoomId;
+    const room_key = uuidv4() as RoomKey;
+
+    person_to_half_occupied_room.set(session_token, room_id);
+    half_occupied_room_to_person.set(room_id, session_token);
+    room_to_key.set(room_id, room_key);
+
+    console.log(
+      `Opened a room ${room_id} requested by${session_token}.`,
+    );
+
+    publicly_announce_matching(
+      `Opened a room ${room_id} requested by${session_token}.
+      The current waiting list for the friend match is [${[...person_to_half_occupied_room.entries()].map(([tok, room]) => `${sha256_first7(tok)}: ${sha256_first7(room)}`)
+      }]`, is_staging
+    )
+
+    return { type: "RoomMade", session_token, room_id, room_key }
+  }
+
+  function make_room(o: { is_staging: boolean }) {
+    return (_req: Request, res: Response) => {
+      res.json(vsFriendMakeRoom(o.is_staging));
+    }
+  }
+
+  function join_room(o: { is_staging: boolean }) {
+    return (req: Request, res: Response) => {
+      const onLeft = (errors: t.Errors): RetFriendJoinRoom => ({
+        type: "Err",
+        why_illegal: `Invalid message format encountered in friend_battle.join_room(): ${errors.length} error(s) found during parsing`,
+      });
+
+      return res.json(
+        pipe(
+          FriendJoinRoomVerifier.decode(req.body),
+          fold(onLeft, function (msg: { room_id: string, room_key: string }): RetFriendJoinRoom {
+            const room_id = msg.room_id as RoomId;
+            const room_key = msg.room_key as RoomKey;
+            const expected_room_key: RoomKey | undefined = room_to_key.get(room_id);
+            if (expected_room_key === undefined) {
+              return { type: "Err", why_illegal: "invalid room id" };
+            }
+            if (expected_room_key !== room_key) {
+              return { type: "Err", why_illegal: "wrong key" };
+            }
+
+            const token: SessionToken | undefined = half_occupied_room_to_person.get(room_id);
+            if (token === undefined) {
+              return { type: "Err", why_illegal: "the room is already occupied" };
+            }
+
+            const newToken: SessionToken = uuidv4() as SessionToken;
+            console.log("A random match between", token, "and", newToken, "will begin.");
+            publicly_announce_matching(`A random match between ${sha256_first7(token)} and ${sha256_first7(newToken)} will begin.`, o.is_staging)
+
+            const ret = initializeRoomBetweenTwoPeopleAndBegin({ token, newToken, is_staging: o.is_staging, room_id });
+            return { type: "Ok", ret };
+          })
+        )
+      )
+    }
+  }
+
+  function delete_room(o: { is_staging: boolean }) {
+    return (req: Request, res: Response) => {
+      const onLeft = (errors: t.Errors): RetFriendDeleteRoom => ({
+        type: "Err",
+        why_illegal: `Invalid message format encountered in friend_battle.delete_room(): ${errors.length} error(s) found during parsing`,
+      });
+
+      return res.json(
+        pipe(
+          FriendDeleteRoomVerifier.decode(req.body),
+          fold(onLeft, function (msg: { session_token: string }): RetFriendDeleteRoom {
+            const session_token = msg.session_token as SessionToken;
+            const maybe_room_info:
+              | RoomInfoWithPerspective
+              | undefined = person_to_fully_occupied_room.get(session_token);
+
+            // The room no longer belongs to you only. Since a friend has joined your room, you cannot delete the room.
+            if (typeof maybe_room_info !== "undefined") {
+              return {
+                type: "Err",
+                why_illegal: "The room no longer belongs to you only. Since a friend has joined your room, you cannot delete the room.",
+              };
+            } else if (person_to_half_occupied_room.has(session_token)) {
+              // No one has come to your room, and is in the waiting list
+              const room_id = person_to_half_occupied_room.get(session_token)!;
+              person_to_half_occupied_room.delete(session_token);
+              half_occupied_room_to_person.delete(room_id);
+              room_to_key.delete(room_id);
+              console.log(`Canceled ${session_token}'s room ${room_id}.`);
+              publicly_announce_matching(`Canceled ${sha256_first7(session_token)}'s room ${sha256_first7(room_id)}. 
+            The current waiting list for the friend match is [${[...person_to_half_occupied_room.entries()].map(([tok, room]) => `${sha256_first7(tok)}: ${sha256_first7(room)}`)}]`, o.is_staging);
+              return {
+                type: "Ok",
+                ret: "RoomIsRevoked",
+              };
+            } else {
+              // You told me to cancel, but I don't know you. Hmm...
+              // well, at least you can cancel
+              return {
+                type: "Ok",
+                ret: "RoomIsRevoked",
+              };
+            }
+          }),
+        ),
+      );
+    }
+  }
+
+  // This poll is only called by the one who made the room.
+  function poll(o: { is_staging: boolean }) {
+    return (req: Request, res: Response) => {
+      const onLeft = (errors: t.Errors): RetFriendPoll => ({
+        type: "Err",
+        why_illegal: `Invalid message format encountered in friend_battle.poll(): ${errors.length} error(s) found during parsing`,
+      });
+
+      return res.json(
+        pipe(
+          FriendBattlePollVerifier.decode(req.body),
+          fold(onLeft, function (msg: { session_token: string }): RetFriendPoll {
+            const session_token = msg.session_token as SessionToken;
+            const maybe_room_id:
+              | RoomInfoWithPerspective
+              | undefined = person_to_fully_occupied_room.get(session_token);
+            if (typeof maybe_room_id !== "undefined") {
+              return {
+                type: "Ok",
+                ret: {
+                  type: "LetTheGameBegin",
+                  is_first_move_my_move:
+                    maybe_room_id.is_first_move_my_move[0 /* spring */],
+                  is_IA_down_for_me: maybe_room_id.is_IA_down_for_me,
+                },
+              };
+            } else if (person_to_half_occupied_room.has(session_token)) {
+              // in the waiting list
+              return {
+                type: "Ok",
+                ret: {
+                  type: "StillAloneInTheRoom",
+                },
+              };
+            } else {
+              // You sent me a poll, but  I don't know you. Hmm...
+              return {
+                type: "Err",
+                why_illegal: `Invalid access token: 
+I don't know ${session_token}, which is the access token that you sent me.
+This API, "/matching/friend/poll", should only be called by the room-maker.
+If you want to make a new room, post to "/matching/friend/make_room".`,
+              };
+
+              // FIXME: in the future, I might let you reapply. This will of course change your UUID.
+            }
+          }),
+        ),
+      );
+    }
+  }
+
+
+  return {
+    make_room, join_room, delete_room, poll
+  }
 })();
 
 const app = express();
@@ -1610,6 +1814,14 @@ app
   .post("/matching/random/cancel/staging", random_battle.cancel({ is_staging: true }))
   .post("/matching/vs_cpu/entry", vs_cpu_battle.entrance({ is_staging: false }))
   .post("/matching/vs_cpu/entry/staging", vs_cpu_battle.entrance({ is_staging: true }))
+  .post("/matching/friend/make_room", friend_battle.make_room({ is_staging: false }))
+  .post("/matching/friend/make_room/staging", friend_battle.make_room({ is_staging: true }))
+  .post("/matching/friend/join_room", friend_battle.join_room({ is_staging: false }))
+  .post("/matching/friend/join_room/staging", friend_battle.join_room({ is_staging: true }))
+  .post("/matching/friend/poll", friend_battle.poll({ is_staging: false }))
+  .post("/matching/friend/poll/staging", friend_battle.poll({ is_staging: true }))
+  .post("/matching/friend/delete_room", friend_battle.delete_room({ is_staging: false }))
+  .post("/matching/friend/delete_room/staging", friend_battle.delete_room({ is_staging: true }))
   .listen(PORT, () => console.log(`Listening on ${PORT}`));
 
 function somepoll<T>(
@@ -1636,7 +1848,7 @@ function somepoll<T>(
     }
 
     const token_ = authorization.slice(7);
-    const maybe_room_info = person_to_room.get(token_ as SessionToken);
+    const maybe_room_info = person_to_fully_occupied_room.get(token_ as SessionToken);
     if (typeof maybe_room_info === "undefined") {
       res.json({ type: "Err", why_illegal: "unrecognized user" });
       return;
@@ -1752,7 +1964,7 @@ function whethertymok_tymok(req: Request, res: Response) {
   }
 
   const token_ = authorization.slice(7);
-  const maybe_room_info = person_to_room.get(token_ as SessionToken);
+  const maybe_room_info = person_to_fully_occupied_room.get(token_ as SessionToken);
   if (typeof maybe_room_info === "undefined") {
     res.json({ type: "Err" });
     return;
@@ -1776,7 +1988,7 @@ function whethertymok_taxot(req: Request, res: Response) {
   }
 
   const token_ = authorization.slice(7);
-  const maybe_room_info = person_to_room.get(token_ as SessionToken);
+  const maybe_room_info = person_to_fully_occupied_room.get(token_ as SessionToken);
   if (typeof maybe_room_info === "undefined") {
     res.json({ type: "Err" });
     return;
@@ -1802,7 +2014,7 @@ function infafterstep(req: Request, res: Response) {
   }
 
   const token_ = authorization.slice(7);
-  const maybe_room_info = person_to_room.get(token_ as SessionToken);
+  const maybe_room_info = person_to_fully_occupied_room.get(token_ as SessionToken);
   if (typeof maybe_room_info === "undefined") {
     res.json({ type: "Err", why_illegal: "unrecognized user" });
     return;
@@ -1838,7 +2050,7 @@ function normalmove(req: Request, res: Response) {
   }
 
   const token_ = authorization.slice(7);
-  const maybe_room_info = person_to_room.get(token_ as SessionToken);
+  const maybe_room_info = person_to_fully_occupied_room.get(token_ as SessionToken);
   if (typeof maybe_room_info === "undefined") {
     res.json({ type: "Err", why_illegal: "unrecognized user" });
     return;
@@ -1874,7 +2086,7 @@ function afterhalfacceptance(req: Request, res: Response) {
   }
 
   const token_ = authorization.slice(7);
-  const maybe_room_info = person_to_room.get(token_ as SessionToken);
+  const maybe_room_info = person_to_fully_occupied_room.get(token_ as SessionToken);
   if (typeof maybe_room_info === "undefined") {
     res.json({ type: "Err", why_illegal: "unrecognized user" });
     return;
@@ -1896,19 +2108,15 @@ function afterhalfacceptance(req: Request, res: Response) {
   res.json(analyzeAfterHalfAcceptanceMessageAndUpdate(message, maybe_room_info));
 }
 
-var waiting_list = new Set<SessionToken>();
-var person_to_room = new Map<SessionToken, RoomInfoWithPerspective>();
+var random_match_waiting_list = new Set<SessionToken>();
+var person_to_half_occupied_room = new Map<SessionToken, RoomId>(); // only for friend_battle
+var half_occupied_room_to_person = new Map<RoomId, SessionToken>(); // only for friend_battle
+var person_to_fully_occupied_room = new Map<SessionToken, RoomInfoWithPerspective>();
 var bot_to_room = new Map<BotToken, RoomInfoWithPerspective>();
-var room_to_bot = new Map<RoomId, BotToken>();
+var room_to_bot = new Map<RoomId, BotToken>(); // only for vs_cpu_battle
 var room_to_gamestate = new Map<RoomId, GameState>();
+var room_to_key = new Map<RoomId, RoomKey>(); // only for friend_battle
 
-function open_a_room(token1: SessionToken, token2: SessionToken, is_staging: boolean): RoomId {
-  console.log("A match between", token1, "and", token2, "will begin.");
-  publicly_announce_matching(`A match between ${sha256_first7(token1)} and ${sha256_first7(token2)} will begin.`, is_staging)
-
-  // FIXME
-  return uuidv4() as RoomId;
-}
 
 function open_a_room_against_bot(token1: BotToken, token2: SessionToken, is_staging: boolean): RoomId {
   console.log("A match between a bot", token1, "and a player", token2, "will begin.");
