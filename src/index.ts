@@ -1260,8 +1260,8 @@ function swap_who_goes_first(a: WhoGoesFirst): WhoGoesFirst {
 }
 
 
-const vs_cpu_entrance = (() => {
-  function vs_cpu_entrance_entrance(o: { is_staging: boolean }) {
+const vs_cpu_battle = (() => {
+  function vs_cpu_battle_entrance(o: { is_staging: boolean }) {
     return (_req: Request, res: Response) => {
       res.json(vsCpuEntry(o.is_staging));
     }
@@ -1352,11 +1352,11 @@ const vs_cpu_entrance = (() => {
   }
 
   return {
-    entrance: vs_cpu_entrance_entrance,
+    entrance: vs_cpu_battle_entrance,
   };
 })();
 
-const random_entrance = (() => {
+const random_battle = (() => {
   const RandomEntrancePollVerifier = t.strict({
     access_token: t.string,
   });
@@ -1364,7 +1364,7 @@ const random_entrance = (() => {
   const RandomEntranceCancelVerifier = t.strict({
     access_token: t.string,
   });
-  function random_entrance_poll(o: { is_staging: boolean }) {
+  function random_battle_poll(o: { is_staging: boolean }) {
     return (req: Request, res: Response) => {
       const onLeft = (errors: t.Errors): RetRandomPoll => ({
         type: "Err",
@@ -1415,7 +1415,7 @@ Please reapply by sending an empty object to random/entry .`,
       );
     }
   }
-  function random_entrance_cancel(o: { is_staging: boolean }) {
+  function random_battle_cancel(o: { is_staging: boolean }) {
     return (req: Request, res: Response) => {
       const onLeft = (errors: t.Errors): RetRandomCancel => ({
         type: "Err",
@@ -1461,7 +1461,7 @@ Please reapply by sending an empty object to random/entry .`,
     }
   }
 
-  function random_entrance_entrance(o: { is_staging: boolean }) {
+  function random_battle_entrance(o: { is_staging: boolean }) {
     return (_req: Request, res: Response) => {
       res.json(randomEntry(o));
     }
@@ -1568,9 +1568,9 @@ Please reapply by sending an empty object to random/entry .`,
   }
 
   return {
-    entrance: random_entrance_entrance,
-    poll: random_entrance_poll,
-    cancel: random_entrance_cancel,
+    entrance: random_battle_entrance,
+    poll: random_battle_poll,
+    cancel: random_battle_cancel,
   };
 })();
 
@@ -1602,14 +1602,14 @@ app
   .post("/decision/normalmove", normalmove)
   .post("/decision/infafterstep", infafterstep)
   .post("/decision/afterhalfacceptance", afterhalfacceptance)
-  .post("/matching/random/entry", random_entrance.entrance({ is_staging: false }))
-  .post("/matching/random/poll", random_entrance.poll({ is_staging: false }))
-  .post("/matching/random/cancel", random_entrance.cancel({ is_staging: false }))
-  .post("/matching/random/entry/staging", random_entrance.entrance({ is_staging: true }))
-  .post("/matching/random/poll/staging", random_entrance.poll({ is_staging: true }))
-  .post("/matching/random/cancel/staging", random_entrance.cancel({ is_staging: true }))
-  .post("/matching/vs_cpu/entry", vs_cpu_entrance.entrance({ is_staging: false }))
-  .post("/matching/vs_cpu/entry/staging", vs_cpu_entrance.entrance({ is_staging: true }))
+  .post("/matching/random/entry", random_battle.entrance({ is_staging: false }))
+  .post("/matching/random/poll", random_battle.poll({ is_staging: false }))
+  .post("/matching/random/cancel", random_battle.cancel({ is_staging: false }))
+  .post("/matching/random/entry/staging", random_battle.entrance({ is_staging: true }))
+  .post("/matching/random/poll/staging", random_battle.poll({ is_staging: true }))
+  .post("/matching/random/cancel/staging", random_battle.cancel({ is_staging: true }))
+  .post("/matching/vs_cpu/entry", vs_cpu_battle.entrance({ is_staging: false }))
+  .post("/matching/vs_cpu/entry/staging", vs_cpu_battle.entrance({ is_staging: true }))
   .listen(PORT, () => console.log(`Listening on ${PORT}`));
 
 function somepoll<T>(
