@@ -63,7 +63,7 @@ const publicly_announce_matching = (() => {
   
   
 type RoomId = string & { __RoomIdBrand: never };
-type AccessToken = string & { __AccessTokenBrand: never };
+type SessionToken = string & { __SessionTokenBrand: never };
 type BotToken = string & { __BotTokenBrand: never };
 
 type RoomInfoWithPerspective = {
@@ -1268,7 +1268,7 @@ const vs_cpu_battle = (() => {
   }
 
   function vsCpuEntry(is_staging: boolean): RetVsCpuEntry {
-    const newToken: AccessToken = uuidv4() as AccessToken;
+    const newToken: SessionToken = uuidv4() as SessionToken;
     const bot_token: BotToken = uuidv4() as BotToken;
 
     const room_id = open_a_room_against_bot(bot_token, newToken, is_staging);
@@ -1375,10 +1375,10 @@ const random_battle = (() => {
         pipe(
           RandomBattlePollVerifier.decode(req.body),
           fold(onLeft, function (msg: { access_token: string }): RetRandomPoll {
-            const access_token = msg.access_token as AccessToken;
+            const session_token = msg.access_token as SessionToken;
             const maybe_room_id:
               | RoomInfoWithPerspective
-              | undefined = person_to_room.get(access_token);
+              | undefined = person_to_room.get(session_token);
             if (typeof maybe_room_id !== "undefined") {
               return {
                 type: "Ok",
@@ -1390,7 +1390,7 @@ const random_battle = (() => {
                   is_IA_down_for_me: maybe_room_id.is_IA_down_for_me,
                 },
               };
-            } else if (waiting_list.has(access_token)) {
+            } else if (waiting_list.has(session_token)) {
               // not yet assigned a room, but is in the waiting list
               return {
                 type: "Ok",
@@ -1403,8 +1403,8 @@ const random_battle = (() => {
               // You sent me a poll, but  I don't know you. Hmm...
               return {
                 type: "Err",
-                why_illegal: `Invalid access token: 
-I don't know ${access_token}, which is the access token that you sent me.
+                why_illegal: `Invalid session token: 
+I don't know ${session_token}, which is the session token that you sent me.
 Please reapply by sending an empty object to random/entry .`,
               };
 
@@ -1426,10 +1426,10 @@ Please reapply by sending an empty object to random/entry .`,
         pipe(
           RandomBattleCancelVerifier.decode(req.body),
           fold(onLeft, function (msg: { access_token: string }): RetRandomCancel {
-            const access_token = msg.access_token as AccessToken;
+            const session_token = msg.access_token as SessionToken;
             const maybe_room_id:
               | RoomInfoWithPerspective
-              | undefined = person_to_room.get(access_token);
+              | undefined = person_to_room.get(session_token);
 
             // you already have a room. you cannot cancel
             if (typeof maybe_room_id !== "undefined") {
@@ -1437,11 +1437,11 @@ Please reapply by sending an empty object to random/entry .`,
                 type: "Ok",
                 cancellable: false,
               };
-            } else if (waiting_list.has(access_token)) {
+            } else if (waiting_list.has(session_token)) {
               // not yet assigned a room, but is in the waiting list
-              waiting_list.delete(access_token);
-              console.log(`Canceled ${access_token}.`);
-              publicly_announce_matching(`Canceled ${sha256_first7(access_token)}. 
+              waiting_list.delete(session_token);
+              console.log(`Canceled ${session_token}.`);
+              publicly_announce_matching(`Canceled ${sha256_first7(session_token)}. 
             The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`, o.is_staging);
               return {
                 type: "Ok",
@@ -1468,7 +1468,7 @@ Please reapply by sending an empty object to random/entry .`,
   }
 
   function randomEntry(o: { is_staging: boolean }): RetRandomEntry {
-    const newToken: AccessToken = uuidv4() as AccessToken;
+    const newToken: SessionToken = uuidv4() as SessionToken;
     for (let token of waiting_list) {
       waiting_list.delete(token);
       publicly_announce_matching(`The current waiting list is [${Array.from(waiting_list.values(), sha256_first7).join(", ")}]`, o.is_staging);
@@ -1636,7 +1636,7 @@ function somepoll<T>(
     }
 
     const token_ = authorization.slice(7);
-    const maybe_room_info = person_to_room.get(token_ as AccessToken);
+    const maybe_room_info = person_to_room.get(token_ as SessionToken);
     if (typeof maybe_room_info === "undefined") {
       res.json({ type: "Err", why_illegal: "unrecognized user" });
       return;
@@ -1752,7 +1752,7 @@ function whethertymok_tymok(req: Request, res: Response) {
   }
 
   const token_ = authorization.slice(7);
-  const maybe_room_info = person_to_room.get(token_ as AccessToken);
+  const maybe_room_info = person_to_room.get(token_ as SessionToken);
   if (typeof maybe_room_info === "undefined") {
     res.json({ type: "Err" });
     return;
@@ -1776,7 +1776,7 @@ function whethertymok_taxot(req: Request, res: Response) {
   }
 
   const token_ = authorization.slice(7);
-  const maybe_room_info = person_to_room.get(token_ as AccessToken);
+  const maybe_room_info = person_to_room.get(token_ as SessionToken);
   if (typeof maybe_room_info === "undefined") {
     res.json({ type: "Err" });
     return;
@@ -1802,7 +1802,7 @@ function infafterstep(req: Request, res: Response) {
   }
 
   const token_ = authorization.slice(7);
-  const maybe_room_info = person_to_room.get(token_ as AccessToken);
+  const maybe_room_info = person_to_room.get(token_ as SessionToken);
   if (typeof maybe_room_info === "undefined") {
     res.json({ type: "Err", why_illegal: "unrecognized user" });
     return;
@@ -1838,7 +1838,7 @@ function normalmove(req: Request, res: Response) {
   }
 
   const token_ = authorization.slice(7);
-  const maybe_room_info = person_to_room.get(token_ as AccessToken);
+  const maybe_room_info = person_to_room.get(token_ as SessionToken);
   if (typeof maybe_room_info === "undefined") {
     res.json({ type: "Err", why_illegal: "unrecognized user" });
     return;
@@ -1874,7 +1874,7 @@ function afterhalfacceptance(req: Request, res: Response) {
   }
 
   const token_ = authorization.slice(7);
-  const maybe_room_info = person_to_room.get(token_ as AccessToken);
+  const maybe_room_info = person_to_room.get(token_ as SessionToken);
   if (typeof maybe_room_info === "undefined") {
     res.json({ type: "Err", why_illegal: "unrecognized user" });
     return;
@@ -1896,13 +1896,13 @@ function afterhalfacceptance(req: Request, res: Response) {
   res.json(analyzeAfterHalfAcceptanceMessageAndUpdate(message, maybe_room_info));
 }
 
-var waiting_list = new Set<AccessToken>();
-var person_to_room = new Map<AccessToken, RoomInfoWithPerspective>();
+var waiting_list = new Set<SessionToken>();
+var person_to_room = new Map<SessionToken, RoomInfoWithPerspective>();
 var bot_to_room = new Map<BotToken, RoomInfoWithPerspective>();
 var room_to_bot = new Map<RoomId, BotToken>();
 var room_to_gamestate = new Map<RoomId, GameState>();
 
-function open_a_room(token1: AccessToken, token2: AccessToken, is_staging: boolean): RoomId {
+function open_a_room(token1: SessionToken, token2: SessionToken, is_staging: boolean): RoomId {
   console.log("A match between", token1, "and", token2, "will begin.");
   publicly_announce_matching(`A match between ${sha256_first7(token1)} and ${sha256_first7(token2)} will begin.`, is_staging)
 
@@ -1910,7 +1910,7 @@ function open_a_room(token1: AccessToken, token2: AccessToken, is_staging: boole
   return uuidv4() as RoomId;
 }
 
-function open_a_room_against_bot(token1: BotToken, token2: AccessToken, is_staging: boolean): RoomId {
+function open_a_room_against_bot(token1: BotToken, token2: SessionToken, is_staging: boolean): RoomId {
   console.log("A match between a bot", token1, "and a player", token2, "will begin.");
   publicly_announce_matching(`A match between a bot ${sha256_first7(token1)} and a player ${sha256_first7(token2)} will begin.`, is_staging)
 
