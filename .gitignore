@@ -12,3 +12,4 @@ Dockerfile
 docker-compose.yml
 
 /dist
+/src/codegen/
